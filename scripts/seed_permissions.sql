@@ -2,7 +2,7 @@
 -- FamilyCart — Permission seed
 -- Run after schema.sql: psql $DATABASE_URL -f seed_permissions.sql
 -- ═══════════════════════════════════════════════════════════════
-
+-- Commit test
 -- Insert all permission definitions
 insert into permissions (key, api, action, description) values
   ('lists.read',   'lists',    'read',   'View all family shopping lists'),
