@@ -1,0 +1,35 @@
+{
+  "name": "@familycart/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@familycart/shared": "*",
+    "expo": "~52.0.0",
+    "expo-router": "~4.0.0",
+    "expo-image-picker": "~15.0.7",
+    "expo-image": "~2.0.0",
+    "expo-file-system": "~17.0.1",
+    "expo-image-manipulator": "~12.0.5",
+    "expo-secure-store": "~13.0.2",
+    "expo-sms": "~12.0.1",
+    "react": "18.3.2",
+    "react-native": "0.76.1",
+    "@tanstack/react-query": "^5.40.0",
+    "zustand": "^4.5.2",
+    "react-native-mmkv": "^2.12.2",
+    "zod": "^3.23.0",
+    "axios": "^1.7.2",
+    "expo-image-manipulator": "~12.0.5"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.3",
+    "typescript": "^5.4.0"
+  }
+}

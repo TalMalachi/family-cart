@@ -1,0 +1,28 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Development override — hot-reload API with tsx watch
+#
+#  Usage:
+#    docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+#  Or use the shortcut script:
+#    ./docker/dev.sh
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    volumes:
+      # Live source mount — edit in IntelliJ, changes reload instantly
+      - ./apps/api/src:/app/apps/api/src
+      - ./packages/shared/src:/app/packages/shared/src
+      # Prevent overwriting node_modules inside container
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    command: ["yarn", "workspace", "@familycart/api", "dev"]

@@ -1,0 +1,126 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  FamilyCart — full local stack
+#
+#  Services:
+#    postgres   PostgreSQL 16  → localhost:5432
+#    redis      Redis 7        → localhost:6379
+#    api        Fastify API    → localhost:3000
+#    adminer    DB UI          → localhost:8080
+#
+#  Usage:
+#    docker compose up --build          # first run (builds + starts everything)
+#    docker compose up                  # subsequent runs
+#    docker compose down -v             # stop + delete volumes (full reset)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: familycart-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-familycart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-familycart_dev}
+      POSTGRES_DB:       ${POSTGRES_DB:-familycart}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-run schema + seed on first boot
+      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./scripts/seed_permissions.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-familycart}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: familycart-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_dev}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_dev}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Fastify API ─────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: familycart-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV:      development
+      PORT:          3000
+      LOG_LEVEL:     debug
+
+      # Database — uses internal Docker network hostname
+      DATABASE_URL:  postgresql://${POSTGRES_USER:-familycart}:${POSTGRES_PASSWORD:-familycart_dev}@postgres:5432/${POSTGRES_DB:-familycart}
+
+      # Redis — uses internal Docker network hostname
+      REDIS_URL:     redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
+
+      # Auth
+      JWT_SECRET:    ${JWT_SECRET:-change_me_for_production_min_32_chars!!}
+      CORS_ORIGIN:   "*"
+
+      # Twilio SMS (leave blank to use console.log in dev)
+      TWILIO_SID:    ${TWILIO_SID:-}
+      TWILIO_TOKEN:  ${TWILIO_TOKEN:-}
+      TWILIO_FROM:   ${TWILIO_FROM:-}
+
+      # Cloudflare R2 / S3 (leave blank to skip uploads in dev)
+      S3_ENDPOINT:   ${S3_ENDPOINT:-}
+      S3_BUCKET:     ${S3_BUCKET:-familycart-media}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:3000/media}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Hot-reload source in dev (comment out for pure production image)
+      - ./apps/api/src:/app/src:ro
+      - ./packages/shared/src:/app/../packages/shared/src:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Adminer (DB browser UI) ──────────────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: familycart-adminer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN:         pepa-linha
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+    name: familycart_postgres_data
+  redis_data:
+    name: familycart_redis_data

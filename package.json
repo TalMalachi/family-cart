@@ -1,0 +1,23 @@
+{
+  "name": "familycart",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "yarn workspace @familycart/mobile start",
+    "api": "yarn workspace @familycart/api dev",
+    "db:migrate": "yarn workspace @familycart/api db:migrate",
+    "db:seed": "yarn workspace @familycart/api db:seed",
+    "typecheck": "yarn workspaces run typecheck",
+    "lint": "yarn workspaces run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "yarn": ">=1.22.0"
+  }
+}

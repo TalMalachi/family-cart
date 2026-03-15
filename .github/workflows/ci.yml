@@ -1,0 +1,55 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Typecheck + lint ───────────────────────────────────────────
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'yarn' }
+      - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+
+  # ─── API deploy (Railway) ────────────────────────────────────────
+  deploy-api:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'yarn' }
+      - run: yarn install --frozen-lockfile
+      - run: yarn workspace @familycart/api build
+      - name: Deploy to Railway
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: familycart-api
+
+  # ─── Mobile build (EAS) ──────────────────────────────────────────
+  build-mobile:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'yarn' }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: yarn install --frozen-lockfile
+      - name: Build iOS + Android (production)
+        working-directory: apps/mobile
+        run: eas build --platform all --non-interactive --auto-submit
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}

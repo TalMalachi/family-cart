@@ -1,0 +1,251 @@
+import React, { useState } from 'react'
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  TextInput, Modal, RefreshControl, ActivityIndicator, Alert,
+} from 'react-native'
+import { useRouter }        from 'expo-router'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api }              from '../../services/api'
+import { PermissionGate }   from '../../components/common/PermissionGate'
+import { useAuth }          from '../../store/auth'
+import type { FamilyMember } from '@familycart/shared'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+
+function Avatar({ name, color }: { name: string; color: string }) {
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <View style={[styles.avatar, { backgroundColor: color + '22' }]}>
+      <Text style={[styles.avatarText, { color }]}>{initials}</Text>
+    </View>
+  )
+}
+
+const AVATAR_COLORS = [Colors.teal, Colors.blue, '#D85A30', Colors.warning, '#993556']
+
+export default function MembersScreen() {
+  const router     = useRouter()
+  const { user }   = useAuth()
+  const qc         = useQueryClient()
+  const [showInvite, setShowInvite] = useState(false)
+  const [invite, setInvite] = useState({ name: '', phone: '', role: 'member' as 'admin' | 'member' })
+  const [inviteSent, setInviteSent] = useState(false)
+
+  const { data: members, isLoading, refetch, isRefetching } = useQuery<FamilyMember[]>({
+    queryKey: ['members'],
+    queryFn: () => api.get('/members').then(r => r.data),
+  })
+
+  const inviteMutation = useMutation({
+    mutationFn: () => api.post('/auth/invite', invite),
+    onSuccess: () => { setInviteSent(true); qc.invalidateQueries({ queryKey: ['members'] }) },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/members/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
+  })
+
+  const confirmRemove = (m: FamilyMember) => {
+    Alert.alert(
+      'Remove member',
+      `Remove ${m.user.fullName} from the family? They will lose access immediately.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removeMutation.mutate(m.id) },
+      ]
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Family members</Text>
+        <PermissionGate require="mem.invite">
+          <TouchableOpacity style={styles.addBtn} onPress={() => { setShowInvite(true); setInviteSent(false) }}>
+            <Text style={styles.addBtnText}>+ Invite</Text>
+          </TouchableOpacity>
+        </PermissionGate>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.teal} />}
+      >
+        {isLoading
+          ? <ActivityIndicator color={Colors.teal} style={{ marginTop: Space.xl }} />
+          : members?.map((m, i) => (
+              <View key={m.id} style={styles.memberCard}>
+                <Avatar name={m.user.fullName} color={AVATAR_COLORS[i % AVATAR_COLORS.length]} />
+                <View style={styles.memberInfo}>
+                  <View style={styles.memberNameRow}>
+                    <Text style={styles.memberName}>{m.user.fullName}</Text>
+                    {m.userId === user?.id && <Text style={styles.youBadge}>you</Text>}
+                  </View>
+                  <Text style={styles.memberPhone}>{m.user.phone}</Text>
+                </View>
+                <View style={styles.memberRight}>
+                  <View style={[styles.roleBadge, m.role === 'admin' ? styles.roleBadgeAdmin : styles.roleBadgeMember]}>
+                    <Text style={[styles.roleBadgeText, m.role === 'admin' ? styles.roleBadgeTextAdmin : styles.roleBadgeTextMember]}>
+                      {m.role}
+                    </Text>
+                  </View>
+                  {m.status === 'pending' && (
+                    <View style={styles.pendingBadge}><Text style={styles.pendingText}>pending</Text></View>
+                  )}
+                </View>
+
+                {/* Admin actions */}
+                <PermissionGate require="mem.perms">
+                  {m.userId !== user?.id && (
+                    <View style={styles.memberActions}>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => router.push(`/(tabs)/members/${m.id}/permissions`)}
+                      >
+                        <Text style={styles.actionBtnText}>Permissions</Text>
+                      </TouchableOpacity>
+                      <PermissionGate require="mem.remove">
+                        <TouchableOpacity style={styles.removeBtn} onPress={() => confirmRemove(m)}>
+                          <Text style={styles.removeBtnText}>Remove</Text>
+                        </TouchableOpacity>
+                      </PermissionGate>
+                    </View>
+                  )}
+                </PermissionGate>
+              </View>
+            ))
+        }
+      </ScrollView>
+
+      {/* Invite modal */}
+      <Modal visible={showInvite} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={styles.modalBg}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+
+            {inviteSent ? (
+              <View style={{ alignItems: 'center', paddingVertical: Space.lg }}>
+                <View style={styles.sentCircle}><Text style={{ fontSize: 28 }}>📱</Text></View>
+                <Text style={styles.sentTitle}>SMS sent!</Text>
+                <Text style={styles.sentBody}>
+                  {invite.name} will receive a 6-digit code at {invite.phone}
+                </Text>
+                <TouchableOpacity style={styles.saveBtn} onPress={() => setShowInvite(false)}>
+                  <Text style={styles.saveBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.sheetTitle}>Invite member</Text>
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoText}>
+                    They'll receive an SMS with a 6-digit code and must set a password on first login.
+                  </Text>
+                </View>
+
+                <Text style={styles.label}>Full name</Text>
+                <TextInput style={styles.input} placeholder="Dan Levi"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={invite.name} onChangeText={t => setInvite(i => ({ ...i, name: t }))} autoFocus />
+
+                <Text style={styles.label}>Phone number</Text>
+                <TextInput style={styles.input} placeholder="+972 50 000 0000"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={invite.phone} onChangeText={t => setInvite(i => ({ ...i, phone: t }))}
+                  keyboardType="phone-pad" />
+
+                <Text style={styles.label}>Role</Text>
+                <View style={styles.roleRow}>
+                  {(['admin', 'member'] as const).map(r => (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.rolePill, invite.role === r && styles.rolePillActive]}
+                      onPress={() => setInvite(i => ({ ...i, role: r }))}
+                    >
+                      <Text style={[styles.rolePillName, invite.role === r && styles.rolePillNameActive]}>
+                        {r === 'admin' ? 'Admin' : 'Member'}
+                      </Text>
+                      <Text style={styles.rolePillSub}>
+                        {r === 'admin' ? 'Full control' : 'Shop & track'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.sheetBtns}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowInvite(false)}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, (!invite.name || !invite.phone) && styles.btnDisabled]}
+                    disabled={!invite.name || !invite.phone || inviteMutation.isPending}
+                    onPress={() => inviteMutation.mutate()}
+                  >
+                    {inviteMutation.isPending
+                      ? <ActivityIndicator color={Colors.white} />
+                      : <Text style={styles.saveBtnText}>Send SMS invite</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container:         { flex: 1, backgroundColor: Colors.bg },
+  header:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md, backgroundColor: Colors.teal },
+  headerTitle:       { flex: 1, fontSize: FontSize.lg, fontWeight: FontWeight.semi, color: Colors.white },
+  addBtn:            { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 6 },
+  addBtnText:        { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
+  content:           { padding: Space.lg, paddingBottom: 80 },
+  memberCard:        { backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.md, marginBottom: Space.sm, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  avatar:            { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', position: 'absolute', top: Space.md, left: Space.md },
+  avatarText:        { fontSize: FontSize.sm, fontWeight: FontWeight.semi },
+  memberInfo:        { marginLeft: 52, flex: 1, paddingRight: Space.lg },
+  memberNameRow:     { flexDirection: 'row', alignItems: 'center', gap: Space.xs },
+  memberName:        { fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },
+  youBadge:          { fontSize: FontSize.xs, color: Colors.textTertiary },
+  memberPhone:       { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  memberRight:       { position: 'absolute', top: Space.md, right: Space.md, alignItems: 'flex-end', gap: Space.xs },
+  roleBadge:         { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  roleBadgeAdmin:    { backgroundColor: Colors.tealLight },
+  roleBadgeMember:   { backgroundColor: Colors.blueLight },
+  roleBadgeText:     { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+  roleBadgeTextAdmin:{ color: Colors.tealDark },
+  roleBadgeTextMember:{ color: Colors.blue },
+  pendingBadge:      { backgroundColor: Colors.warningLight, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  pendingText:       { fontSize: FontSize.xs, color: Colors.warning, fontWeight: FontWeight.medium },
+  memberActions:     { flexDirection: 'row', gap: Space.xs, marginTop: Space.sm, marginLeft: 52, paddingTop: Space.sm, borderTopWidth: 0.5, borderTopColor: Colors.border },
+  actionBtn:         { backgroundColor: Colors.blueLight, borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 5 },
+  actionBtnText:     { fontSize: FontSize.xs, color: Colors.blue, fontWeight: FontWeight.medium },
+  removeBtn:         { backgroundColor: Colors.dangerLight, borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 5 },
+  removeBtnText:     { fontSize: FontSize.xs, color: Colors.danger, fontWeight: FontWeight.medium },
+  modalBg:           { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet:             { backgroundColor: Colors.bgCard, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Space.xl, paddingBottom: 40 },
+  sheetHandle:       { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Space.lg },
+  sheetTitle:        { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary, marginBottom: Space.md },
+  infoBox:           { backgroundColor: Colors.tealLight, borderRadius: Radius.sm, padding: Space.md, marginBottom: Space.lg },
+  infoText:          { fontSize: FontSize.sm, color: Colors.tealDark, lineHeight: 20 },
+  label:             { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: Space.xs, textTransform: 'uppercase', letterSpacing: 0.4 },
+  input:             { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
+  roleRow:           { flexDirection: 'row', gap: Space.sm, marginBottom: Space.lg },
+  rolePill:          { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md, padding: Space.md },
+  rolePillActive:    { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
+  rolePillName:      { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.textPrimary },
+  rolePillNameActive:{ color: Colors.tealDark },
+  rolePillSub:       { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  sheetBtns:         { flexDirection: 'row', gap: Space.sm },
+  cancelBtn:         { flex: 1, borderWidth: 0.5, borderColor: Colors.borderMid, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
+  cancelBtnText:     { fontSize: FontSize.md, color: Colors.textSecondary },
+  saveBtn:           { flex: 1, backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
+  saveBtnText:       { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
+  btnDisabled:       { opacity: 0.45 },
+  sentCircle:        { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.blueLight, alignItems: 'center', justifyContent: 'center', marginBottom: Space.lg },
+  sentTitle:         { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary, marginBottom: Space.xs },
+  sentBody:          { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Space.xl },
+})
