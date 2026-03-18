@@ -20,8 +20,8 @@ cp .env.example .env
 # → edit .env with your DATABASE_URL, JWT_SECRET, Twilio, R2 credentials
 
 # Set up the database
-psql $DATABASE_URL -f scripts/schema.sql
-psql $DATABASE_URL -f scripts/seed_permissions.sql
+psql postgresql://postgres:password@localhost:5434/familycart -f scripts/schema.sql
+psql postgresql://postgres:password@localhost:5434/familycart -f scripts/seed_permissions.sql
 
 # Start API (port 3000)
 yarn api

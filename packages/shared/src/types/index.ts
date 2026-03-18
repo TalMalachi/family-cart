@@ -2,7 +2,7 @@
 
 export type Role = 'admin' | 'member'
 
-export type MemberStatus = 'pending' | 'active' | 'suspended'
+export type MemberStatus = 'register' | 'active' | 'suspended' | 'deleted'
 
 export interface User {
   id: string

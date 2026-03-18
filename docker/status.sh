@@ -39,7 +39,7 @@ done
 
 echo ""
 echo -e "  API    → ${CYAN}http://localhost:3000/health${NC}"
-echo -e "  DB UI  → ${CYAN}http://localhost:8080${NC}"
+echo -e "  DB UI  → ${CYAN}http://localhost:8999${NC}"
 echo ""
 
 # Quick API health ping

@@ -1,13 +1,12 @@
-version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  FamilyCart — full local stack
 #
 #  Services:
-#    postgres   PostgreSQL 16  → localhost:5432
+#    postgres   PostgreSQL 16  → localhost:5434
 #    redis      Redis 7        → localhost:6379
 #    api        Fastify API    → localhost:3000
-#    adminer    DB UI          → localhost:8080
+#    adminer    DB UI          → localhost:8999
 #
 #  Usage:
 #    docker compose up --build          # first run (builds + starts everything)
@@ -32,7 +31,7 @@ services:
       - ./scripts/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./scripts/seed_permissions.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     ports:
-      - "5432:5432"
+      - "5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-familycart}"]
       interval: 5s
@@ -72,6 +71,14 @@ services:
       PORT:          3000
       LOG_LEVEL:     debug
 
+      # First login bootstrap admin (disable with SEED_DEFAULT_ADMIN=false)
+      SEED_DEFAULT_ADMIN: ${SEED_DEFAULT_ADMIN:-true}
+      DEFAULT_ADMIN_FULL_NAME: ${DEFAULT_ADMIN_FULL_NAME:-FamilyCart Admin}
+      DEFAULT_ADMIN_PHONE: ${DEFAULT_ADMIN_PHONE:-+10000000001}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@familycart.local}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-Admin123!}
+      DEFAULT_ADMIN_FAMILY_NAME: ${DEFAULT_ADMIN_FAMILY_NAME:-FamilyCart Home}
+
       # Database — uses internal Docker network hostname
       DATABASE_URL:  postgresql://${POSTGRES_USER:-familycart}:${POSTGRES_PASSWORD:-familycart_dev}@postgres:5432/${POSTGRES_DB:-familycart}
 
@@ -81,6 +88,12 @@ services:
       # Auth
       JWT_SECRET:    ${JWT_SECRET:-change_me_for_production_min_32_chars!!}
       CORS_ORIGIN:   "*"
+
+      # Public URL for share links (set to your public domain, e.g. https://familycart.example.com)
+      APP_URL:       ${APP_URL:-}
+
+      # Host machine LAN IP (auto-detected by start.sh, used for QR login codes)
+      HOST_LAN_IP:   ${HOST_LAN_IP:-}
 
       # Twilio SMS (leave blank to use console.log in dev)
       TWILIO_SID:    ${TWILIO_SID:-}
@@ -93,6 +106,9 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
       S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:3000/media}
+
+      # OpenAI (leave blank to disable AI image search)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "3000:3000"
     volumes:
@@ -100,7 +116,7 @@ services:
       - ./apps/api/src:/app/src:ro
       - ./packages/shared/src:/app/../packages/shared/src:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -117,7 +133,7 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
       ADMINER_DESIGN:         pepa-linha
     ports:
-      - "8080:8080"
+      - "8999:8080"
 
 volumes:
   postgres_data:

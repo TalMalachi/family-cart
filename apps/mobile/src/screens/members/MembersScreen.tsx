@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, Modal, RefreshControl, ActivityIndicator, Alert,
@@ -10,6 +10,12 @@ import { PermissionGate }   from '../../components/common/PermissionGate'
 import { useAuth }          from '../../store/auth'
 import type { FamilyMember } from '@familycart/shared'
 import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import {
+  isWhatsAppInstalled,
+  openWhatsAppForGroupCreation,
+  openWhatsAppGroup,
+  isValidWhatsAppGroupLink,
+} from '../../utils/whatsapp'
 
 function Avatar({ name, color }: { name: string; color: string }) {
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -27,16 +33,98 @@ export default function MembersScreen() {
   const { user }   = useAuth()
   const qc         = useQueryClient()
   const [showInvite, setShowInvite] = useState(false)
-  const [invite, setInvite] = useState({ name: '', phone: '', role: 'member' as 'admin' | 'member' })
+  const [invite, setInvite] = useState({ name: '', phone: '', email: '', role: 'member' as 'admin' | 'member' })
   const [inviteSent, setInviteSent] = useState(false)
+
+  // ─── WhatsApp group state ────────────────────────────────────
+  const [showWaLinkModal, setShowWaLinkModal] = useState(false)
+  const [waLinkInput, setWaLinkInput]         = useState('')
+  const [hasWhatsApp, setHasWhatsApp]         = useState(true)
+
+  useEffect(() => {
+    isWhatsAppInstalled().then(setHasWhatsApp)
+  }, [])
 
   const { data: members, isLoading, refetch, isRefetching } = useQuery<FamilyMember[]>({
     queryKey: ['members'],
     queryFn: () => api.get('/members').then(r => r.data),
   })
 
+  // Fetch saved WhatsApp group link from server
+  const { data: waGroupData, refetch: refetchWaGroup } = useQuery<{ link: string | null }>({
+    queryKey: ['whatsapp-group'],
+    queryFn: () => api.get('/members/whatsapp-group').then(r => r.data),
+  })
+
+  const waGroupLink = waGroupData?.link ?? null
+
+  // Save WhatsApp group link mutation
+  const saveWaLinkMutation = useMutation({
+    mutationFn: (link: string) => api.put('/members/whatsapp-group', { link }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-group'] })
+      setShowWaLinkModal(false)
+      setWaLinkInput('')
+      Alert.alert('✅ Saved', 'WhatsApp group linked! All family members can now open the group directly.')
+    },
+    onError: () => Alert.alert('Error', 'Failed to save WhatsApp group link.'),
+  })
+
+  // Remove WhatsApp group link mutation
+  const removeWaLinkMutation = useMutation({
+    mutationFn: () => api.delete('/members/whatsapp-group'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['whatsapp-group'] }),
+  })
+
+  // ─── WhatsApp handlers ──────────────────────────────────────
+  const handleCreateWhatsAppGroup = async () => {
+    if (!members?.length) return
+    const activeMembers = members.filter(m => m.status === 'active')
+    const phones = activeMembers
+      .map(m => m.user?.phone ?? (m as any).phone)
+      .filter(Boolean) as string[]
+    const familyName = user?.fullName ? `${user.fullName}'s Family` : 'FamilyCart Group'
+    await openWhatsAppForGroupCreation(familyName, phones)
+
+    // After WhatsApp opens, prompt the user to save the group link
+    setTimeout(() => {
+      setShowWaLinkModal(true)
+    }, 1000)
+  }
+
+  const handleOpenWhatsAppGroup = async () => {
+    if (waGroupLink) {
+      await openWhatsAppGroup(waGroupLink)
+    }
+  }
+
+  const handleSaveWaLink = () => {
+    const link = waLinkInput.trim()
+    if (!isValidWhatsAppGroupLink(link)) {
+      Alert.alert('Invalid Link', 'Please paste a valid WhatsApp group invite link (https://chat.whatsapp.com/...)')
+      return
+    }
+    saveWaLinkMutation.mutate(link)
+  }
+
+  const handleRemoveWaGroup = () => {
+    Alert.alert(
+      'Remove WhatsApp Group',
+      'Unlink the WhatsApp group from this family?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removeWaLinkMutation.mutate() },
+      ],
+    )
+  }
+
   const inviteMutation = useMutation({
-    mutationFn: () => api.post('/auth/invite', invite),
+    mutationFn: () => api.post('/auth/invite', {
+      fullName: invite.name,
+      phone: invite.phone,
+      email: invite.email,
+      role: invite.role,
+    }),
     onSuccess: () => { setInviteSent(true); qc.invalidateQueries({ queryKey: ['members'] }) },
   })
 
@@ -89,8 +177,8 @@ export default function MembersScreen() {
                       {m.role}
                     </Text>
                   </View>
-                  {m.status === 'pending' && (
-                    <View style={styles.pendingBadge}><Text style={styles.pendingText}>pending</Text></View>
+                  {m.status !== 'active' && (
+                    <View style={styles.pendingBadge}><Text style={styles.pendingText}>{m.status}</Text></View>
                   )}
                 </View>
 
@@ -115,7 +203,98 @@ export default function MembersScreen() {
               </View>
             ))
         }
+
+        {/* ─── WhatsApp Group Section ─────────────────────────── */}
+        {hasWhatsApp && !isLoading && (
+          <View style={styles.waSection}>
+            <Text style={styles.waSectionTitle}>📱 WhatsApp Group</Text>
+
+            {waGroupLink ? (
+              <>
+                <Text style={styles.waDescription}>
+                  Family group is linked to WhatsApp. All members can open it directly.
+                </Text>
+                <TouchableOpacity style={styles.waOpenBtn} onPress={handleOpenWhatsAppGroup}>
+                  <Text style={styles.waOpenBtnText}>💬 Open WhatsApp Group</Text>
+                </TouchableOpacity>
+                <PermissionGate require="mem.perms">
+                  <View style={styles.waActions}>
+                    <TouchableOpacity
+                      style={styles.waChangeLinkBtn}
+                      onPress={() => { setWaLinkInput(waGroupLink); setShowWaLinkModal(true) }}
+                    >
+                      <Text style={styles.waChangeLinkText}>Change link</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.waRemoveLinkBtn} onPress={handleRemoveWaGroup}>
+                      <Text style={styles.waRemoveLinkText}>Unlink</Text>
+                    </TouchableOpacity>
+                  </View>
+                </PermissionGate>
+              </>
+            ) : (
+              <>
+                <Text style={styles.waDescription}>
+                  Create a WhatsApp group with all family members for quick communication.
+                </Text>
+                <TouchableOpacity style={styles.waCreateBtn} onPress={handleCreateWhatsAppGroup}>
+                  <Text style={styles.waCreateBtnText}>📱 Create WhatsApp Group</Text>
+                </TouchableOpacity>
+                <PermissionGate require="mem.perms">
+                  <TouchableOpacity
+                    style={styles.waLinkExistingBtn}
+                    onPress={() => { setWaLinkInput(''); setShowWaLinkModal(true) }}
+                  >
+                    <Text style={styles.waLinkExistingText}>Already have a group? Paste invite link</Text>
+                  </TouchableOpacity>
+                </PermissionGate>
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
+
+      {/* WhatsApp group link modal */}
+      <Modal visible={showWaLinkModal} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={styles.modalBg}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Link WhatsApp Group</Text>
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>
+                1. Open WhatsApp → your family group{'\n'}
+                2. Tap group name → Invite via link → Copy link{'\n'}
+                3. Paste the link below
+              </Text>
+            </View>
+            <Text style={styles.label}>Group invite link</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="https://chat.whatsapp.com/..."
+              placeholderTextColor={Colors.textTertiary}
+              value={waLinkInput}
+              onChangeText={setWaLinkInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+            <View style={styles.sheetBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowWaLinkModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, !waLinkInput.trim() && styles.btnDisabled]}
+                disabled={!waLinkInput.trim() || saveWaLinkMutation.isPending}
+                onPress={handleSaveWaLink}
+              >
+                {saveWaLinkMutation.isPending
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={styles.saveBtnText}>Save Link</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Invite modal */}
       <Modal visible={showInvite} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -128,7 +307,7 @@ export default function MembersScreen() {
                 <View style={styles.sentCircle}><Text style={{ fontSize: 28 }}>📱</Text></View>
                 <Text style={styles.sentTitle}>SMS sent!</Text>
                 <Text style={styles.sentBody}>
-                  {invite.name} will receive a 6-digit code at {invite.phone}
+                  {invite.name} will receive a 6-digit code at {invite.phone} ({invite.email})
                 </Text>
                 <TouchableOpacity style={styles.saveBtn} onPress={() => setShowInvite(false)}>
                   <Text style={styles.saveBtnText}>Done</Text>
@@ -154,6 +333,12 @@ export default function MembersScreen() {
                   value={invite.phone} onChangeText={t => setInvite(i => ({ ...i, phone: t }))}
                   keyboardType="phone-pad" />
 
+                <Text style={styles.label}>Email</Text>
+                <TextInput style={styles.input} placeholder="name@example.com"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={invite.email} onChangeText={t => setInvite(i => ({ ...i, email: t }))}
+                  keyboardType="email-address" autoCapitalize="none" />
+
                 <Text style={styles.label}>Role</Text>
                 <View style={styles.roleRow}>
                   {(['admin', 'member'] as const).map(r => (
@@ -177,8 +362,8 @@ export default function MembersScreen() {
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.saveBtn, (!invite.name || !invite.phone) && styles.btnDisabled]}
-                    disabled={!invite.name || !invite.phone || inviteMutation.isPending}
+                    style={[styles.saveBtn, (!invite.name || !invite.phone || !invite.email) && styles.btnDisabled]}
+                    disabled={!invite.name || !invite.phone || !invite.email || inviteMutation.isPending}
                     onPress={() => inviteMutation.mutate()}
                   >
                     {inviteMutation.isPending
@@ -248,4 +433,20 @@ const styles = StyleSheet.create({
   sentCircle:        { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.blueLight, alignItems: 'center', justifyContent: 'center', marginBottom: Space.lg },
   sentTitle:         { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary, marginBottom: Space.xs },
   sentBody:          { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Space.xl },
+
+  // ─── WhatsApp group styles ──────────────────────────────────
+  waSection:         { marginTop: Space.lg, backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.lg, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  waSectionTitle:    { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.sm },
+  waDescription:     { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Space.md },
+  waCreateBtn:       { backgroundColor: '#25D366', borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
+  waCreateBtnText:   { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
+  waOpenBtn:         { backgroundColor: '#25D366', borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
+  waOpenBtnText:     { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
+  waLinkExistingBtn: { marginTop: Space.sm, alignItems: 'center', paddingVertical: Space.sm },
+  waLinkExistingText:{ fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.medium },
+  waActions:         { flexDirection: 'row', justifyContent: 'center', gap: Space.md, marginTop: Space.sm },
+  waChangeLinkBtn:   { paddingVertical: Space.xs, paddingHorizontal: Space.sm },
+  waChangeLinkText:  { fontSize: FontSize.xs, color: Colors.blue, fontWeight: FontWeight.medium },
+  waRemoveLinkBtn:   { paddingVertical: Space.xs, paddingHorizontal: Space.sm },
+  waRemoveLinkText:  { fontSize: FontSize.xs, color: Colors.danger, fontWeight: FontWeight.medium },
 })

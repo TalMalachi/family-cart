@@ -1,13 +1,14 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Image, RefreshControl, TextInput, Modal, Alert, ActivityIndicator,
+  ScrollView,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import * as ImagePicker from 'expo-image-picker'
 import { api }               from '../../services/api'
 import { PermissionGate }    from '../../components/common/PermissionGate'
+import { shareListToWhatsApp } from '../../utils/whatsapp'
 import type { ShoppingList, ShoppingItem } from '@familycart/shared'
 import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
 
@@ -69,6 +70,25 @@ function ItemRow({
   )
 }
 
+// ── Category constants ────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  { key: 'Produce',       icon: '🥬', he: 'ירקות ופירות' },
+  { key: 'Dairy',         icon: '🧀', he: 'מוצרי חלב' },
+  { key: 'Meat',          icon: '🍖', he: 'בשר ועוף' },
+  { key: 'Bakery',        icon: '🍞', he: 'מאפים' },
+  { key: 'Frozen',        icon: '❄️', he: 'קפואים' },
+  { key: 'Beverages',     icon: '🥤', he: 'משקאות' },
+  { key: 'Snacks',        icon: '🍯', he: 'חטיפים' },
+  { key: 'Cleaning',      icon: '🧹', he: 'ניקיון' },
+  { key: 'Personal Care', icon: '🪥', he: 'טיפוח' },
+  { key: 'Baby',          icon: '👶', he: 'תינוקות' },
+  { key: 'Pharmacy',      icon: '💊', he: 'בית מרקחת' },
+  { key: 'Other',         icon: '📦', he: 'אחר' },
+] as const
+
+const CATEGORY_ORDER = Object.fromEntries(CATEGORIES.map((c, i) => [c.key, i]))
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ListDetailScreen() {
@@ -77,6 +97,7 @@ export default function ListDetailScreen() {
   const qc            = useQueryClient()
   const [addName, setAddName]   = useState('')
   const [addQty,  setAddQty]    = useState('1')
+  const [addCat,  setAddCat]    = useState('')
   const [showAdd, setShowAdd]   = useState(false)
 
   const { data: list, isLoading, refetch, isRefetching } = useQuery<ShoppingList>({
@@ -92,11 +113,12 @@ export default function ListDetailScreen() {
 
   const addMutation = useMutation({
     mutationFn: () => api.post(`/lists/${id}/items`, {
-      listId: id, name: addName, quantity: parseFloat(addQty) || 1,
+      name: addName, quantity: parseFloat(addQty) || 1,
+      category: addCat || undefined,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['list', id] })
-      setAddName(''); setAddQty('1'); setShowAdd(false)
+      setAddName(''); setAddQty('1'); setAddCat(''); setShowAdd(false)
     },
   })
 
@@ -108,7 +130,13 @@ export default function ListDetailScreen() {
       if (!map.has(cat)) map.set(cat, [])
       map.get(cat)!.push(item)
     }
-    return [...map.entries()]
+    // Sort categories: known categories in defined order, unknown ones at end alphabetically
+    return [...map.entries()].sort((a, b) => {
+      const oa = CATEGORY_ORDER[a[0]] ?? 900
+      const ob = CATEGORY_ORDER[b[0]] ?? 900
+      if (oa !== ob) return oa - ob
+      return a[0].localeCompare(b[0])
+    })
   }, [list?.items])
 
   const total     = list?.items?.length ?? 0
@@ -120,7 +148,10 @@ export default function ListDetailScreen() {
 
   const flatData: any[] = []
   for (const [cat, items] of grouped) {
-    flatData.push({ type: 'section', title: cat, key: `sec-${cat}` })
+    const catDef = CATEGORIES.find(c => c.key === cat)
+    const icon = catDef?.icon ?? '📋'
+    const label = catDef?.he ?? cat
+    flatData.push({ type: 'section', title: `${icon} ${label}`, key: `sec-${cat}` })
     for (const item of items) flatData.push({ type: 'item', data: item, key: item.id })
   }
 
@@ -132,6 +163,12 @@ export default function ListDetailScreen() {
           <Text style={styles.navBack}>←</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>{list.name}</Text>
+        <TouchableOpacity
+          style={styles.waShareBtn}
+          onPress={() => shareListToWhatsApp(list)}
+        >
+          <Text style={styles.waShareBtnText}>📱</Text>
+        </TouchableOpacity>
         <Text style={styles.navProgress}>{purchased}/{total}</Text>
       </View>
 
@@ -191,8 +228,21 @@ export default function ListDetailScreen() {
               onChangeText={setAddQty}
               keyboardType="numeric"
             />
+            <Text style={styles.label}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll} contentContainerStyle={styles.catScrollContent}>
+              {CATEGORIES.map(c => (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[styles.catChip, addCat === c.key && styles.catChipSelected]}
+                  onPress={() => setAddCat(addCat === c.key ? '' : c.key)}
+                >
+                  <Text style={styles.catIcon}>{c.icon}</Text>
+                  <Text style={[styles.catLabel, addCat === c.key && styles.catLabelSelected]}>{c.he}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             <View style={styles.sheetBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAdd(false)}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowAdd(false); setAddCat('') }}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -220,6 +270,8 @@ const styles = StyleSheet.create({
   navBack:         { fontSize: FontSize.xl, color: Colors.white, marginRight: Space.xs },
   navTitle:        { flex: 1, fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.white },
   navProgress:     { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.8)' },
+  waShareBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  waShareBtnText:  { fontSize: 16 },
   progBg:          { height: 3, backgroundColor: 'rgba(0,0,0,0.08)' },
   progFill:        { height: '100%', backgroundColor: Colors.white },
   content:         { padding: Space.lg, paddingBottom: 80 },
@@ -253,4 +305,11 @@ const styles = StyleSheet.create({
   saveBtn:         { flex: 1, backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
   saveBtnText:     { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
   btnDisabled:     { opacity: 0.45 },
+  catScroll:         { marginBottom: Space.md, maxHeight: 70 },
+  catScrollContent:  { gap: 8, paddingRight: Space.md },
+  catChip:           { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 64 },
+  catChipSelected:   { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
+  catIcon:           { fontSize: 20, marginBottom: 2 },
+  catLabel:          { fontSize: 10, fontWeight: FontWeight.medium, color: Colors.textSecondary },
+  catLabelSelected:  { color: Colors.tealDark },
 })

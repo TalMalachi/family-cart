@@ -23,7 +23,8 @@
     "twilio": "^5.1.0",
     "@aws-sdk/client-s3": "^3.575.0",
     "@aws-sdk/s3-request-presigner": "^3.575.0",
-    "nanoid": "^5.0.7"
+    "nanoid": "^5.0.7",
+    "openai": "^4.96.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

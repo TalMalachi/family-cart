@@ -19,12 +19,27 @@ const s3 = new S3Client({
 export async function mediaRoutes(app: FastifyInstance) {
 
   // POST /media/presign  — get a signed URL to upload directly from device
-  app.post('/presign', { preHandler: requirePermission('med.upload') }, async (request) => {
+  app.post('/presign', { preHandler: requirePermission('med.upload') }, async (request, reply) => {
     const { itemId, contentType } = request.body as {
-      itemId: string
-      contentType: 'image/jpeg' | 'image/png' | 'image/webp'
+      itemId?: string
+      contentType?: 'image/jpeg' | 'image/png' | 'image/webp'
     }
-    const { id: userId } = request.user as any
+    const { id: userId, familyId } = request.user as any
+
+    // Validate body
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!itemId || typeof itemId !== 'string' || !contentType || !validTypes.includes(contentType)) {
+      return reply.status(400).send({ error: 'invalid_body', message: 'itemId (string) and contentType (image/jpeg|image/png|image/webp) are required' })
+    }
+
+    // Verify target item exists
+    const [item] = await db`select * from shopping_items where id = ${itemId}`
+    if (!item) return reply.status(404).send({ error: 'not_found' })
+
+    // Verify parent list belongs to user's family
+    const [list] = await db`select * from shopping_lists where id = ${item.listId}`
+    if (!list) return reply.status(404).send({ error: 'not_found' })
+    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
 
     const key = `items/${itemId}/${nanoid()}`
     const command = new PutObjectCommand({
@@ -47,12 +62,22 @@ export async function mediaRoutes(app: FastifyInstance) {
   })
 
   // PATCH /media/:imageId/primary  — set as the primary product image
-  app.patch('/:imageId/primary', { preHandler: requirePermission('med.upload') }, async (request) => {
+  app.patch('/:imageId/primary', { preHandler: requirePermission('med.upload') }, async (request, reply) => {
     const { imageId } = request.params as any
+    const { familyId } = request.user as any
 
-    // Get item_id first
+    // Verify image exists
     const [img] = await db`select item_id from product_images where id = ${imageId}`
-    if (!img) return { error: 'not_found' }
+    if (!img) return reply.status(404).send({ error: 'not_found' })
+
+    // Verify owning item exists
+    const [item] = await db`select * from shopping_items where id = ${img.itemId}`
+    if (!item) return reply.status(404).send({ error: 'not_found' })
+
+    // Verify parent list belongs to user's family
+    const [list] = await db`select * from shopping_lists where id = ${item.listId}`
+    if (!list) return reply.status(404).send({ error: 'not_found' })
+    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
 
     // Clear existing primary, set new one
     await db.begin(async sql => {
@@ -69,11 +94,23 @@ export async function mediaRoutes(app: FastifyInstance) {
   // DELETE /media/:imageId
   app.delete('/:imageId', { preHandler: requirePermission('med.delete') }, async (request, reply) => {
     const { imageId } = request.params as any
+    const { familyId } = request.user as any
 
-    const [img] = await db`
-      delete from product_images where id = ${imageId} returning url
-    `
+    // Verify image exists
+    const [img] = await db`select * from product_images where id = ${imageId}`
     if (!img) return reply.status(404).send({ error: 'not_found' })
+
+    // Verify owning item exists
+    const [item] = await db`select * from shopping_items where id = ${img.itemId}`
+    if (!item) return reply.status(404).send({ error: 'not_found' })
+
+    // Verify parent list belongs to user's family
+    const [list] = await db`select * from shopping_lists where id = ${item.listId}`
+    if (!list) return reply.status(404).send({ error: 'not_found' })
+    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+
+    // Delete from DB
+    await db`delete from product_images where id = ${imageId}`
 
     // Delete from R2/S3
     const key = img.url.replace(`${env.S3_PUBLIC_URL}/`, '')

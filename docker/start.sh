@@ -69,6 +69,23 @@ else
   log "Mode: PRODUCTION"
 fi
 
+# ── Detect host LAN IP (for QR login codes on mobile) ────────────────────────
+if [ -z "${HOST_LAN_IP:-}" ]; then
+  if command -v ipconfig &>/dev/null; then
+    # macOS
+    HOST_LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "")
+  else
+    # Linux
+    HOST_LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+  fi
+fi
+export HOST_LAN_IP
+if [ -n "$HOST_LAN_IP" ]; then
+  ok "Host LAN IP: $HOST_LAN_IP (used for QR login codes)"
+else
+  warn "Could not detect LAN IP. QR login codes will use the request hostname."
+fi
+
 BUILD_FLAG=""
 if $FORCE_BUILD; then
   BUILD_FLAG="--build"
@@ -116,9 +133,13 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 echo -e "  API         → ${CYAN}http://localhost:3000${NC}"
 echo -e "  Health      → ${CYAN}http://localhost:3000/health${NC}"
-echo -e "  DB browser  → ${CYAN}http://localhost:8080${NC}"
-echo -e "  PostgreSQL  → ${CYAN}localhost:5432${NC}"
+echo -e "  DB browser  → ${CYAN}http://localhost:8999${NC}"
+echo -e "  PostgreSQL  → ${CYAN}localhost:5434${NC}"
 echo -e "  Redis       → ${CYAN}localhost:6379${NC}"
+if [ -n "${HOST_LAN_IP:-}" ]; then
+echo ""
+echo -e "  📱 Mobile QR → ${CYAN}http://${HOST_LAN_IP}:3000/app${NC}  (open this to generate login QR codes)"
+fi
 echo ""
 echo -e "  DB login (Adminer):"
 echo -e "    System:   PostgreSQL"

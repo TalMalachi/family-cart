@@ -11,7 +11,13 @@
     "db:migrate": "yarn workspace @familycart/api db:migrate",
     "db:seed": "yarn workspace @familycart/api db:seed",
     "typecheck": "yarn workspaces run typecheck",
-    "lint": "yarn workspaces run lint"
+    "lint": "yarn workspaces run lint",
+    "docker": "./docker/main.sh",
+    "docker:start": "./docker/main.sh up",
+    "docker:dev": "./docker/main.sh dev",
+    "docker:all": "./docker/main.sh all",
+    "docker:stop": "./docker/main.sh stop",
+    "docker:status": "./docker/main.sh status"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

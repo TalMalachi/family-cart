@@ -11,7 +11,7 @@ create extension if not exists "pgcrypto";
 create table users (
   id           uuid primary key default gen_random_uuid(),
   email        text unique,
-  phone        text unique not null,
+  phone        text not null,
   full_name    text not null,
   password_hash text not null,
   must_change_password boolean default false,
@@ -20,22 +20,23 @@ create table users (
 
 -- ─── Families ────────────────────────────────────────────────────
 create table families (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  created_by   uuid references users(id) on delete set null,
-  created_at   timestamptz default now()
+  id                   uuid primary key default gen_random_uuid(),
+  name                 text not null,
+  whatsapp_group_link  text,
+  created_by           uuid references users(id) on delete set null,
+  created_at           timestamptz default now()
 );
 
 -- ─── Family Members ──────────────────────────────────────────────
 create type member_role   as enum ('admin', 'member');
-create type member_status as enum ('pending', 'active', 'suspended');
+create type member_status as enum ('register', 'active', 'suspended', 'deleted');
 
 create table family_members (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid references users(id) on delete cascade,
   family_id    uuid references families(id) on delete cascade,
   role         member_role not null default 'member',
-  status       member_status not null default 'pending',
+  status       member_status not null default 'register',
   joined_at    timestamptz default now(),
   unique (user_id, family_id)
 );
@@ -47,6 +48,7 @@ create table invitations (
   id           uuid primary key default gen_random_uuid(),
   family_id    uuid references families(id) on delete cascade,
   phone        text not null,
+  email        text not null,
   full_name    text not null,
   role         member_role not null default 'member',
   status       invite_status not null default 'pending',

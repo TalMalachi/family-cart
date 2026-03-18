@@ -44,13 +44,13 @@ function ListCard({ list, onPress }: { list: ShoppingList; onPress: () => void }
 export default function ShoppingListsScreen() {
   const router = useRouter()
 
-  const { data: lists, isLoading, refetch, isRefetching } = useQuery<ShoppingList[]>({
+  const { data: paged, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['lists'],
-    queryFn:  () => api.get('/lists').then(r => r.data),
+    queryFn:  () => api.get('/lists?status=all').then(r => r.data),
   })
-
-  const active   = lists?.filter(l => l.status === 'active')    ?? []
-  const archived = lists?.filter(l => l.status !== 'active')    ?? []
+  const lists = paged?.data ?? []
+  const active   = lists.filter(l => l.status === 'active')
+  const archived = lists.filter(l => l.status !== 'active')
 
   if (isLoading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.teal} size="large" /></View>

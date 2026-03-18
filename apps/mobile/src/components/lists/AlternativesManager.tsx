@@ -30,7 +30,7 @@ export function AlternativesManager({ itemId, listQueryKey, alternatives }: Prop
   const [priority, setPriority] = useState<Priority>('preferred')
 
   const addMutation = useMutation({
-    mutationFn: () => api.post(`/lists/items/${itemId}/alternatives`, { itemId, name, note: note || undefined, priority }),
+    mutationFn: () => api.post(`/lists/items/${itemId}/alternatives`, { name, note: note || undefined, priority }),
     onSuccess:  () => {
       qc.invalidateQueries({ queryKey: [listQueryKey] })
       setShowAdd(false)

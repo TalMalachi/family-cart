@@ -14,6 +14,21 @@ import { PermissionGate }      from '../../components/common/PermissionGate'
 import type { ShoppingItem }   from '@familycart/shared'
 import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
 
+const CATEGORIES = [
+  { key: 'Produce',       icon: '🥬', he: 'ירקות ופירות' },
+  { key: 'Dairy',         icon: '🧀', he: 'מוצרי חלב' },
+  { key: 'Meat',          icon: '🍖', he: 'בשר ועוף' },
+  { key: 'Bakery',        icon: '🍞', he: 'מאפים' },
+  { key: 'Frozen',        icon: '❄️', he: 'קפואים' },
+  { key: 'Beverages',     icon: '🥤', he: 'משקאות' },
+  { key: 'Snacks',        icon: '🍯', he: 'חטיפים' },
+  { key: 'Cleaning',      icon: '🧹', he: 'ניקיון' },
+  { key: 'Personal Care', icon: '🪥', he: 'טיפוח' },
+  { key: 'Baby',          icon: '👶', he: 'תינוקות' },
+  { key: 'Pharmacy',      icon: '💊', he: 'בית מרקחת' },
+  { key: 'Other',         icon: '📦', he: 'אחר' },
+] as const
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
@@ -135,6 +150,27 @@ export default function ProductDetailScreen() {
     },
   })
 
+  // AI image search
+  const [aiSearching, setAiSearching] = useState(false)
+  const aiImageSearch = async () => {
+    const n = name || item?.name
+    if (!n) { Alert.alert('Enter a name', 'Type an item name first.'); return }
+    setAiSearching(true)
+    try {
+      const res = await api.post('/lists/items/ai-image-search', { name: n, category: category || item?.category })
+      const url = res.data?.imageUrl
+      if (!url) { Alert.alert('No image found', 'Try a more specific product name.'); return }
+      // Attach the found image to the item
+      await api.post(`/lists/items/${itemId}/images`, { url, isPrimary: true })
+      qc.invalidateQueries({ queryKey: ['item', itemId] })
+      Alert.alert('Image attached', res.data.title || 'AI image saved as primary.')
+    } catch (e: any) {
+      Alert.alert('AI search failed', e?.response?.data?.message || e.message || 'Unknown error')
+    } finally {
+      setAiSearching(false)
+    }
+  }
+
   const confirmDeleteImg = (imgId: string) =>
     Alert.alert('Delete photo', 'Remove this product photo?', [
       { text: 'Cancel', style: 'cancel' },
@@ -226,7 +262,21 @@ export default function ProductDetailScreen() {
             <FieldRow label="Quantity"       value={qty}      onChangeText={markDirty(setQty)}      keyboardType="decimal-pad" />
             <FieldRow label="Unit"           value={unit}     onChangeText={markDirty(setUnit)}      placeholder="kg, pcs, L…" />
             <FieldRow label="Est. price (₪)" value={price}    onChangeText={markDirty(setPrice)}    keyboardType="decimal-pad" />
-            <FieldRow label="Category"       value={category} onChangeText={markDirty(setCategory)} placeholder="Dairy, Produce…" />
+            <View style={styles.categoryPickerRow}>
+              <Text style={styles.fieldLabel}>Category</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll} contentContainerStyle={styles.catScrollContent}>
+              {CATEGORIES.map(c => (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[styles.catChip, category === c.key && styles.catChipSelected]}
+                  onPress={() => { setCategory(category === c.key ? '' : c.key); setIsDirty(true) }}
+                >
+                  <Text style={styles.catChipIcon}>{c.icon}</Text>
+                  <Text style={[styles.catChipLabel, category === c.key && styles.catChipLabelSelected]}>{c.he}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </PermissionGate>
         </Section>
 
@@ -244,6 +294,18 @@ export default function ProductDetailScreen() {
             onPickCamera={() => pickAndUpload('camera')}
             onPickLibrary={() => pickAndUpload('library')}
           />
+          <PermissionGate require="lists.write">
+            <TouchableOpacity
+              style={styles.aiFindBtn}
+              onPress={aiImageSearch}
+              disabled={aiSearching}
+            >
+              {aiSearching
+                ? <ActivityIndicator color={Colors.teal} size="small" />
+                : <Text style={styles.aiFindBtnText}>🔍 Find Image by AI</Text>
+              }
+            </TouchableOpacity>
+          </PermissionGate>
         </Section>
 
         {/* Alternatives */}
@@ -327,4 +389,14 @@ const styles = StyleSheet.create({
   savebarMsg:              { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
   savebarBtn:              { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingHorizontal: Space.xl, paddingVertical: 11 },
   savebarBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
-})
+  aiFindBtn:               { borderTopWidth: 0.5, borderTopColor: Colors.border, paddingVertical: 12, alignItems: 'center' },
+  aiFindBtnText:           { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.medium },
+  categoryPickerRow:       { paddingHorizontal: Space.lg, paddingTop: 10, paddingBottom: 4 },
+  catScroll:               { paddingHorizontal: Space.lg, paddingBottom: 10, maxHeight: 64 },
+  catScrollContent:        { gap: 6 },
+  catChip:                 { alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 8, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 56 },
+  catChipSelected:         { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
+  catChipIcon:             { fontSize: 18, marginBottom: 1 },
+  catChipLabel:            { fontSize: 9, fontWeight: FontWeight.medium, color: Colors.textSecondary },
+  catChipLabelSelected:    { color: Colors.tealDark },
+} as const)
