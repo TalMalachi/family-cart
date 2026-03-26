@@ -3,12 +3,13 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Switch, ActivityIndicator, Alert, TextInput,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api }               from '../../services/api'
 import { PERMISSION_GROUPS, ALL_PERMISSIONS } from '@familycart/shared/permissions'
 import type { PermissionKey } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 import StitchCard from '../../components/common/StitchCard'
 
 interface MemberPerms {
@@ -62,12 +63,10 @@ export default function PermissionsManagerScreen() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      // Merge pending into existing overrides
       const existingMap: OverrideMap = {}
       data?.overrides.forEach(o => { existingMap[o.permissionKey] = o.granted })
       const merged = { ...existingMap, ...pending }
 
-      // Only send non-default overrides
       const overrides = Object.entries(merged)
         .filter(([key, val]) => val !== data?.roleDefaults.includes(key as PermissionKey))
         .map(([permissionKey, granted]) => ({ permissionKey, granted }))
@@ -86,7 +85,6 @@ export default function PermissionsManagerScreen() {
     onSuccess: () => { setPending({}); refetch() },
   })
 
-  // ─── Set password ──────────────────────────────────────────
   const [newPassword, setNewPassword] = useState('')
 
   const setPasswordMutation = useMutation({
@@ -140,9 +138,14 @@ export default function PermissionsManagerScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
+      <LinearGradient
+        colors={Gradients.teal as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{data.fullName}</Text>
@@ -150,7 +153,7 @@ export default function PermissionsManagerScreen() {
             <Text style={styles.roleBadgeText}>{data.role}</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Info banner */}
@@ -199,30 +202,35 @@ export default function PermissionsManagerScreen() {
         {/* Set password section */}
         <View style={styles.group}>
           <Text style={styles.groupTitle}>Set Password</Text>
-          <StitchCard>
-            <View style={styles.passwordSection}>
-              <Text style={styles.passwordHint}>
-                Set a new password for {data.fullName}. Minimum 8 characters.
-              </Text>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="New password"
-                placeholderTextColor={Colors.textTertiary}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry
-              />
-              <TouchableOpacity
-                style={[styles.passwordBtn, newPassword.length < 8 && styles.btnDisabled]}
-                disabled={newPassword.length < 8 || setPasswordMutation.isPending}
-                onPress={() => setPasswordMutation.mutate(newPassword)}
+          <StitchCard contentStyle={{ padding: Space.lg }}>
+            <Text style={styles.passwordHint}>
+              Set a new password for {data.fullName}. Minimum 8 characters.
+            </Text>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="New password"
+              placeholderTextColor={Colors.textTertiary}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+            <TouchableOpacity
+              style={[styles.passwordBtn, newPassword.length < 8 && styles.btnDisabled]}
+              disabled={newPassword.length < 8 || setPasswordMutation.isPending}
+              onPress={() => setPasswordMutation.mutate(newPassword)}
+            >
+              <LinearGradient
+                colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.passwordBtnInner}
               >
                 {setPasswordMutation.isPending
                   ? <ActivityIndicator color={Colors.white} size="small" />
                   : <Text style={styles.passwordBtnText}>Update Password</Text>
                 }
-              </TouchableOpacity>
-            </View>
+              </LinearGradient>
+            </TouchableOpacity>
           </StitchCard>
         </View>
 
@@ -236,16 +244,23 @@ export default function PermissionsManagerScreen() {
             <Text style={styles.resetBtnText}>Reset to role defaults</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.saveBtn, !hasChanges && styles.btnDisabled]}
+            style={[styles.saveActionBtn, !hasChanges && styles.btnDisabled]}
             disabled={!hasChanges || saveMutation.isPending}
             onPress={() => saveMutation.mutate()}
           >
-            {saveMutation.isPending
-              ? <ActivityIndicator color={Colors.white} size="small" />
-              : <Text style={styles.saveBtnText}>
-                  Save{hasChanges ? ` (${Object.keys(pending).length})` : ''}
-                </Text>
-            }
+            <LinearGradient
+              colors={Gradients.teal as unknown as [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveActionBtnInner}
+            >
+              {saveMutation.isPending
+                ? <ActivityIndicator color={Colors.white} size="small" />
+                : <Text style={styles.saveBtnText}>
+                    Save{hasChanges ? ` (${Object.keys(pending).length})` : ''}
+                  </Text>
+              }
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -256,34 +271,36 @@ export default function PermissionsManagerScreen() {
 const styles = StyleSheet.create({
   container:     { flex: 1, backgroundColor: Colors.bg },
   center:        { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header:        { backgroundColor: Colors.teal, paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md },
-  backText:      { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.8)', fontWeight: FontWeight.medium, marginBottom: Space.sm },
-  headerInfo:    { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  headerName:    { fontSize: FontSize.lg, fontWeight: FontWeight.semi, color: Colors.white, flex: 1 },
-  roleBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.sm, paddingVertical: 3 },
-  roleBadgeText: { fontSize: FontSize.xs, color: Colors.white, fontWeight: FontWeight.medium },
+  header:        { paddingHorizontal: Space.xl, paddingTop: 60, paddingBottom: Space.lg },
+  backBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: Space.sm },
+  backText:      { fontSize: FontSize.lg, color: Colors.white },
+  headerInfo:    { flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  headerName:    { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.white, flex: 1 },
+  roleBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 4 },
+  roleBadgeText: { fontSize: FontSize.xs, color: Colors.white, fontWeight: FontWeight.semi },
   content:       { padding: Space.lg, paddingBottom: 100 },
-  infoBanner:    { backgroundColor: Colors.blueLight, borderRadius: Radius.sm, padding: Space.md, marginBottom: Space.lg },
-  infoText:      { fontSize: FontSize.sm, color: Colors.blue, lineHeight: 20 },
-  group:         { marginBottom: Space.lg },
-  groupTitle:    { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Space.sm },
-  permRow:       { flexDirection: 'row', alignItems: 'center', padding: Space.md, gap: Space.sm },
-  permRowBorder: { borderBottomWidth: 0.5, borderBottomColor: Colors.border },
+  infoBanner:    { backgroundColor: Colors.blueLight, borderRadius: Radius.md, padding: Space.lg, marginBottom: Space.xl },
+  infoText:      { fontSize: FontSize.sm, color: Colors.blue, lineHeight: 22 },
+  group:         { marginBottom: Space.xl },
+  groupTitle:    { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: Space.sm },
+  permRow:       { flexDirection: 'row', alignItems: 'center', padding: Space.lg, gap: Space.md },
+  permRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   permInfo:      { flex: 1 },
   permNameRow:   { flexDirection: 'row', alignItems: 'center', gap: Space.xs, flexWrap: 'wrap' },
-  permName:      { fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: FontWeight.medium, flexShrink: 1 },
-  permKey:       { fontSize: FontSize.xs, color: Colors.textTertiary, marginTop: 2, fontFamily: 'monospace' },
-  srcBadge:      { borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
-  srcText:       { fontSize: 10, fontWeight: FontWeight.medium },
-  actionBar:     { flexDirection: 'row', gap: Space.sm, marginTop: Space.sm },
-  resetBtn:      { flex: 1, borderWidth: 0.5, borderColor: Colors.borderMid, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
-  resetBtnText:  { fontSize: FontSize.sm, color: Colors.textSecondary },
-  saveBtn:       { flex: 1, backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
-  saveBtnText:   { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
+  permName:      { fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: FontWeight.semi, flexShrink: 1 },
+  permKey:       { fontSize: FontSize.xs, color: Colors.textTertiary, marginTop: 3, fontFamily: 'monospace' },
+  srcBadge:      { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  srcText:       { fontSize: 10, fontWeight: FontWeight.semi },
+  actionBar:     { flexDirection: 'row', gap: Space.md, marginTop: Space.sm },
+  resetBtn:      { flex: 1, borderWidth: 1.5, borderColor: Colors.borderMid, borderRadius: Radius.sm, paddingVertical: 15, alignItems: 'center' },
+  resetBtnText:  { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: FontWeight.medium },
+  saveActionBtn: { flex: 1, borderRadius: Radius.sm, overflow: 'hidden' },
+  saveActionBtnInner: { paddingVertical: 15, alignItems: 'center', borderRadius: Radius.sm },
+  saveBtnText:   { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.semi },
   btnDisabled:   { opacity: 0.45 },
-  passwordSection: { padding: Space.md },
-  passwordHint:  { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Space.sm, lineHeight: 20 },
-  passwordInput: { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.sm },
-  passwordBtn:   { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 12, alignItems: 'center' },
-  passwordBtnText: { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
+  passwordHint:  { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Space.md, lineHeight: 22 },
+  passwordInput: { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.lg, paddingVertical: 14, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
+  passwordBtn:   { borderRadius: Radius.sm, overflow: 'hidden' },
+  passwordBtnInner: { paddingVertical: 14, alignItems: 'center', borderRadius: Radius.sm },
+  passwordBtnText: { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
 })

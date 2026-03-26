@@ -4,17 +4,18 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, ScrollView,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { api }     from '../../services/api'
 import { useAuth } from '../../store/auth'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 function StrengthBar({ password }: { password: string }) {
   let s = 0
   if (password.length >= 8)           s++
   if (/[A-Z]/.test(password))         s++
   if (/[0-9!@#$%^&*]/.test(password)) s++
-  const colors = ['', Colors.danger, Colors.warning, Colors.teal]
+  const colors = ['', Colors.danger, Colors.amber, Colors.teal]
   const labels = ['', 'Weak', 'Fair', 'Strong']
   return (
     <View style={{ marginBottom: Space.md }}>
@@ -55,10 +56,13 @@ export default function SetPasswordScreen() {
 
   if (done) {
     return (
-      <View style={styles.centred}>
-        <View style={styles.successCircle}>
-          <Text style={{ fontSize: 32 }}>✓</Text>
-        </View>
+      <LinearGradient colors={['#F0FDF9', '#E8FAF3', '#F8FAFC']} style={styles.centred}>
+        <LinearGradient
+          colors={Gradients.teal as unknown as [string, string, ...string[]]}
+          style={styles.successCircle}
+        >
+          <Text style={{ fontSize: 32, color: Colors.white }}>✓</Text>
+        </LinearGradient>
         <Text style={styles.successTitle}>Welcome, {fullName}!</Text>
         <Text style={styles.successBody}>
           You've joined the family. Your account is ready.
@@ -70,83 +74,100 @@ export default function SetPasswordScreen() {
           ))}
         </View>
         <TouchableOpacity style={styles.btn} onPress={() => router.replace('/(tabs)')}>
-          <Text style={styles.btnText}>Open FamilyCart</Text>
+          <LinearGradient
+            colors={Gradients.teal as unknown as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.btnGradient}
+          >
+            <Text style={styles.btnText}>Open FamilyCart</Text>
+          </LinearGradient>
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
     )
   }
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.bg }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Set your password</Text>
-        <Text style={styles.subtitle}>
-          Choose a strong password to secure your account, {fullName}.
-        </Text>
+      <LinearGradient colors={['#F0FDF9', '#E8FAF3', '#F8FAFC']} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Set your password</Text>
+          <Text style={styles.subtitle}>
+            Choose a strong password to secure your account, {fullName}.
+          </Text>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>New password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Min. 8 characters"
-            placeholderTextColor={Colors.textTertiary}
-            value={password}
-            onChangeText={t => { setPassword(t); setError('') }}
-            secureTextEntry
-            autoFocus
-          />
-          <StrengthBar password={password} />
+          <View style={styles.card}>
+            <Text style={styles.label}>New password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Min. 8 characters"
+              placeholderTextColor={Colors.textTertiary}
+              value={password}
+              onChangeText={t => { setPassword(t); setError('') }}
+              secureTextEntry
+              autoFocus
+            />
+            <StrengthBar password={password} />
 
-          <Text style={styles.label}>Confirm password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Repeat password"
-            placeholderTextColor={Colors.textTertiary}
-            value={confirm}
-            onChangeText={t => { setConfirm(t); setError('') }}
-            secureTextEntry
-          />
+            <Text style={styles.label}>Confirm password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Repeat password"
+              placeholderTextColor={Colors.textTertiary}
+              value={confirm}
+              onChangeText={t => { setConfirm(t); setError('') }}
+              secureTextEntry
+            />
 
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
+            {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[styles.btn, (password.length < 8 || !confirm) && styles.btnDisabled]}
-            disabled={password.length < 8 || !confirm || loading}
-            onPress={handleSubmit}
-          >
-            {loading
-              ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.btnText}>Set password & enter app</Text>
-            }
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <TouchableOpacity
+              style={[styles.btn, (password.length < 8 || !confirm) && styles.btnDisabled]}
+              disabled={password.length < 8 || !confirm || loading}
+              onPress={handleSubmit}
+            >
+              <LinearGradient
+                colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btnGradient}
+              >
+                {loading
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={styles.btnText}>Set password & enter app</Text>
+                }
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </LinearGradient>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container:     { flexGrow: 1, padding: Space.xl, paddingTop: 56, backgroundColor: Colors.bg },
-  centred:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Space.xl, backgroundColor: Colors.bg },
-  title:         { fontSize: FontSize.xl, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.xs, letterSpacing: -0.3 },
-  subtitle:      { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Space.xl },
-  card:          { backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Space.xl, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
-  label:         { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.4, textTransform: 'uppercase' },
-  input:         { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
-  bar:           { height: 3, backgroundColor: Colors.bgSecondary, borderRadius: 2, marginBottom: Space.xs, overflow: 'hidden' },
+  container:     { flexGrow: 1, padding: Space.xl, paddingTop: 56 },
+  centred:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Space.xl },
+  title:         { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, marginBottom: Space.xs, letterSpacing: -0.5 },
+  subtitle:      { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 22, marginBottom: Space.xl },
+  card:          { backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Space.xl, borderWidth: 1, borderColor: Colors.border, ...Shadow.elevated },
+  label:         { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.5, textTransform: 'uppercase' },
+  input:         { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.lg, paddingVertical: 14, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
+  bar:           { height: 4, backgroundColor: Colors.bgSecondary, borderRadius: 2, marginBottom: Space.xs, overflow: 'hidden' },
   barFill:       { height: '100%', borderRadius: 2 },
-  barLabel:      { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+  barLabel:      { fontSize: FontSize.xs, fontWeight: FontWeight.semi },
   errorText:     { fontSize: FontSize.xs, color: Colors.danger, marginBottom: Space.sm },
-  btn:           { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center', marginTop: Space.xs, width: '100%' },
+  btn:           { borderRadius: Radius.sm, overflow: 'hidden', marginTop: Space.sm, width: '100%' },
+  btnGradient:   { paddingVertical: 15, alignItems: 'center', borderRadius: Radius.sm },
   btnDisabled:   { opacity: 0.45 },
-  btnText:       { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.medium },
-  successCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.tealLight, alignItems: 'center', justifyContent: 'center', marginBottom: Space.lg },
-  successTitle:  { fontSize: FontSize.xl, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.sm, letterSpacing: -0.3 },
-  successBody:   { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Space.xl },
-  permBox:       { backgroundColor: Colors.tealLight, borderRadius: Radius.md, padding: Space.lg, width: '100%', marginBottom: Space.xl },
-  permTitle:     { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.tealDark, marginBottom: Space.sm },
-  permItem:      { fontSize: FontSize.sm, color: Colors.tealMid, lineHeight: 24 },
+  btnText:       { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semi },
+  successCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: Space.xl, ...Shadow.glow },
+  successTitle:  { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary, marginBottom: Space.sm },
+  successBody:   { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: Space.xl },
+  permBox:       { backgroundColor: Colors.tealLight, borderRadius: Radius.md, padding: Space.xl, width: '100%', marginBottom: Space.xl },
+  permTitle:     { fontSize: FontSize.sm, fontWeight: FontWeight.semi, color: Colors.tealDark, marginBottom: Space.sm },
+  permItem:      { fontSize: FontSize.sm, color: Colors.tealMid, lineHeight: 26 },
 })

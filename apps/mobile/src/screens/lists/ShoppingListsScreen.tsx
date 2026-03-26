@@ -9,7 +9,8 @@ import { api }              from '../../services/api'
 import { PermissionGate }   from '../../components/common/PermissionGate'
 import type { ShoppingList } from '@familycart/shared'
 import StitchCard from '../../components/common/StitchCard'
-import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import GradientHeader from '../../components/common/GradientHeader'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 function ListCard({ list, onPress }: { list: ShoppingList; onPress: () => void }) {
   const total      = list.items?.length ?? 0
@@ -18,12 +19,14 @@ function ListCard({ list, onPress }: { list: ShoppingList; onPress: () => void }
   const isComplete = list.status === 'completed'
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <StitchCard style={styles.card} contentStyle={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <View style={[styles.statusDot, { backgroundColor: isComplete ? Colors.teal : Colors.warning }]} />
+          <View style={[styles.statusDot, { backgroundColor: isComplete ? Colors.teal : Colors.amber }]} />
           <Text style={styles.listName} numberOfLines={1}>{list.name}</Text>
-          <Text style={styles.itemCount}>{total} items</Text>
+          <View style={styles.itemCountBadge}>
+            <Text style={styles.itemCount}>{total}</Text>
+          </View>
         </View>
 
         {/* Progress bar */}
@@ -61,9 +64,7 @@ export default function ShoppingListsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Shopping lists</Text>
+      <GradientHeader title="Shopping lists">
         <PermissionGate require="lists.create">
           <TouchableOpacity
             style={styles.addBtn}
@@ -72,7 +73,7 @@ export default function ShoppingListsScreen() {
             <Text style={styles.addBtnText}>+ New list</Text>
           </TouchableOpacity>
         </PermissionGate>
-      </View>
+      </GradientHeader>
 
       <FlatList
         data={[
@@ -122,24 +123,23 @@ export default function ShoppingListsScreen() {
 const styles = StyleSheet.create({
   container:     { flex: 1, backgroundColor: Colors.bg },
   center:        { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md, backgroundColor: Colors.teal },
-  headerTitle:   { fontSize: FontSize.lg, fontWeight: FontWeight.semi, color: Colors.white },
-  addBtn:        { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 6 },
-  addBtnText:    { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
-  listContent:   { padding: Space.lg, paddingBottom: 80 },
-  sectionLabel:  { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: Space.lg, marginBottom: Space.sm },
-  card:          { marginBottom: Space.sm },
+  addBtn:        { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.lg, paddingVertical: 8, backdropFilter: 'blur(10)' as any },
+  addBtnText:    { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
+  listContent:   { padding: Space.lg, paddingBottom: 100 },
+  sectionLabel:  { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginTop: Space.xl, marginBottom: Space.md },
+  card:          { marginBottom: Space.md },
   cardContent:   { padding: Space.lg },
-  cardHeader:    { flexDirection: 'row', alignItems: 'center', gap: Space.sm, marginBottom: Space.sm },
-  statusDot:     { width: 8, height: 8, borderRadius: 4 },
-  listName:      { flex: 1, fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },
-  itemCount:     { fontSize: FontSize.sm, color: Colors.textSecondary },
-  progressBg:    { height: 4, backgroundColor: Colors.bgSecondary, borderRadius: 2, marginBottom: Space.sm, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: Colors.teal, borderRadius: 2 },
+  cardHeader:    { flexDirection: 'row', alignItems: 'center', gap: Space.sm, marginBottom: Space.md },
+  statusDot:     { width: 10, height: 10, borderRadius: 5 },
+  listName:      { flex: 1, fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary },
+  itemCountBadge:{ backgroundColor: Colors.tealLight, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 2 },
+  itemCount:     { fontSize: FontSize.xs, color: Colors.teal, fontWeight: FontWeight.bold },
+  progressBg:    { height: 6, backgroundColor: Colors.bgSecondary, borderRadius: 3, marginBottom: Space.md, overflow: 'hidden' },
+  progressFill:  { height: '100%', backgroundColor: Colors.teal, borderRadius: 3 },
   cardFooter:    { flexDirection: 'row', justifyContent: 'space-between' },
   footerText:    { fontSize: FontSize.xs, color: Colors.textSecondary },
   footerDate:    { fontSize: FontSize.xs, color: Colors.textTertiary },
-  emptyCard:     { backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.xl, alignItems: 'center', borderWidth: 0.5, borderColor: Colors.border, borderStyle: 'dashed' },
+  emptyCard:     { backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Space.xl, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   emptyText:     { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Space.sm },
-  emptyLink:     { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.medium },
+  emptyLink:     { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.semi },
 })

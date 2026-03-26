@@ -3,9 +3,10 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, TextInput,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { api }       from '../../services/api'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 const CODE_LENGTH = 6
 
@@ -45,7 +46,7 @@ export default function VerifySmsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#F0FDF9', '#E8FAF3', '#F8FAFC']} style={styles.container}>
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
@@ -77,7 +78,14 @@ export default function VerifySmsScreen() {
               disabled={phone.length < 8}
               onPress={() => setStep('code')}
             >
-              <Text style={styles.btnText}>Continue</Text>
+              <LinearGradient
+                colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btnGradient}
+              >
+                <Text style={styles.btnText}>Continue</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </>
         ) : (
@@ -111,7 +119,7 @@ export default function VerifySmsScreen() {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.numKey} onPress={handleResend} activeOpacity={0.7}>
-                <Text style={[styles.numText, { fontSize: FontSize.xs, color: Colors.teal }]}>Resend</Text>
+                <Text style={[styles.numText, { fontSize: FontSize.xs, color: Colors.teal, fontWeight: FontWeight.semi }]}>Resend</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.numKey} onPress={() => enterDigit('0')} activeOpacity={0.7}>
                 <Text style={styles.numText}>0</Text>
@@ -126,37 +134,45 @@ export default function VerifySmsScreen() {
               disabled={digits.length < CODE_LENGTH || loading}
               onPress={handleVerify}
             >
-              {loading
-                ? <ActivityIndicator color={Colors.white} />
-                : <Text style={styles.btnText}>Verify code</Text>
-              }
+              <LinearGradient
+                colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btnGradient}
+              >
+                {loading
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={styles.btnText}>Verify code</Text>
+                }
+              </LinearGradient>
             </TouchableOpacity>
           </>
         )}
       </View>
-    </View>
+    </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: Colors.bg, padding: Space.xl, paddingTop: 56 },
+  container:       { flex: 1, padding: Space.xl, paddingTop: 56 },
   backBtn:         { marginBottom: Space.lg },
-  backText:        { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.medium },
-  title:           { fontSize: FontSize.xl, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.xs, letterSpacing: -0.3 },
-  subtitle:        { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Space.xl },
-  card:            { backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Space.xl, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
-  label:           { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.4, textTransform: 'uppercase' },
-  input:           { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
-  codeRow:         { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Space.md },
-  digitBox:        { width: 44, height: 52, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center' },
+  backText:        { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.semi },
+  title:           { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary, marginBottom: Space.xs, letterSpacing: -0.5 },
+  subtitle:        { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 22, marginBottom: Space.xl },
+  card:            { backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Space.xl, borderWidth: 1, borderColor: Colors.border, ...Shadow.elevated },
+  label:           { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.5, textTransform: 'uppercase' },
+  input:           { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.lg, paddingVertical: 14, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
+  codeRow:         { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Space.lg },
+  digitBox:        { width: 46, height: 54, borderRadius: Radius.sm, borderWidth: 2, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center' },
   digitBoxFilled:  { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
-  digitBoxActive:  { borderColor: Colors.teal, borderWidth: 2 },
-  digitText:       { fontSize: FontSize.xl, fontWeight: FontWeight.medium, color: Colors.textPrimary },
+  digitBoxActive:  { borderColor: Colors.teal, borderWidth: 2.5 },
+  digitText:       { fontSize: FontSize.xl, fontWeight: FontWeight.semi, color: Colors.textPrimary },
   errorText:       { fontSize: FontSize.xs, color: Colors.danger, marginBottom: Space.sm, textAlign: 'center' },
-  numpad:          { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, justifyContent: 'center', marginBottom: Space.lg },
-  numKey:          { width: 72, height: 52, borderRadius: Radius.sm, backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: Colors.border },
-  numText:         { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary },
-  btn:             { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
+  numpad:          { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, justifyContent: 'center', marginBottom: Space.xl },
+  numKey:          { width: 74, height: 54, borderRadius: Radius.sm, backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  numText:         { fontSize: FontSize.lg, fontWeight: FontWeight.semi, color: Colors.textPrimary },
+  btn:             { borderRadius: Radius.sm, overflow: 'hidden' },
+  btnGradient:     { paddingVertical: 15, alignItems: 'center', borderRadius: Radius.sm },
   btnDisabled:     { opacity: 0.45 },
-  btnText:         { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.medium },
+  btnText:         { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semi },
 })

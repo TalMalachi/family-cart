@@ -4,9 +4,10 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, ScrollView, Alert,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useAuth }   from '../../store/auth'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 export default function LoginScreen() {
   const router        = useRouter()
@@ -24,7 +25,6 @@ export default function LoginScreen() {
     setError('')
     try {
       await login(value, password)
-      // Navigation handled by RootLayout auth guard
     } catch (e: any) {
       setError(
         e?.response?.status === 401
@@ -41,145 +41,166 @@ export default function LoginScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+      <LinearGradient
+        colors={['#F0FDF9', '#E8FAF3', '#F8FAFC']}
+        style={styles.flex}
       >
-        {/* Logo mark */}
-        <View style={styles.logoWrap}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>🛒</Text>
-          </View>
-          <Text style={styles.appName}>FamilyCart</Text>
-          <Text style={styles.tagline}>Shopping together, simply.</Text>
-        </View>
-
-        {/* Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign in</Text>
-
-          <Text style={styles.label}>Phone or email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="+972 50 000 0000"
-            placeholderTextColor={Colors.textTertiary}
-            value={value}
-            onChangeText={t => { setValue(t); setError('') }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor={Colors.textTertiary}
-            value={password}
-            onChangeText={t => { setPassword(t); setError('') }}
-            secureTextEntry
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-          />
-
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-          <TouchableOpacity
-            style={[styles.btn, !canSubmit && styles.btnDisabled]}
-            onPress={handleLogin}
-            activeOpacity={0.85}
-            disabled={!canSubmit || loading}
-          >
-            {loading
-              ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.btnText}>Sign in</Text>
-            }
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.outlineBtn}
-            onPress={() => router.push('/(auth)/register')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.outlineBtnText}>Create family account</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Invite code link */}
-        <TouchableOpacity
-          style={styles.inviteLink}
-          onPress={() => router.push('/(auth)/verify-sms')}
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.inviteLinkText}>
-            Got an invite code?{' '}
-            <Text style={styles.inviteLinkAccent}>Enter it here</Text>
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+          {/* Logo mark */}
+          <View style={styles.logoWrap}>
+            <LinearGradient
+              colors={Gradients.teal as unknown as [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logo}
+            >
+              <Text style={styles.logoIcon}>🛒</Text>
+            </LinearGradient>
+            <Text style={styles.appName}>FamilyCart</Text>
+            <Text style={styles.tagline}>Shopping together, simply.</Text>
+          </View>
+
+          {/* Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Welcome back</Text>
+            <Text style={styles.cardSubtitle}>Sign in to your account</Text>
+
+            <Text style={styles.label}>Phone or email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+972 50 000 0000"
+              placeholderTextColor={Colors.textTertiary}
+              value={value}
+              onChangeText={t => { setValue(t); setError('') }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="••••••••"
+              placeholderTextColor={Colors.textTertiary}
+              value={password}
+              onChangeText={t => { setPassword(t); setError('') }}
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+            />
+
+            {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[styles.btn, !canSubmit && styles.btnDisabled]}
+              onPress={handleLogin}
+              activeOpacity={0.85}
+              disabled={!canSubmit || loading}
+            >
+              <LinearGradient
+                colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.btnGradient}
+              >
+                {loading
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={styles.btnText}>Sign in</Text>
+                }
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={styles.outlineBtn}
+              onPress={() => router.push('/(auth)/register')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.outlineBtnText}>Create family account</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Invite code link */}
+          <TouchableOpacity
+            style={styles.inviteLink}
+            onPress={() => router.push('/(auth)/verify-sms')}
+          >
+            <Text style={styles.inviteLinkText}>
+              Got an invite code?{' '}
+              <Text style={styles.inviteLinkAccent}>Enter it here</Text>
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </LinearGradient>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  flex:         { flex: 1, backgroundColor: Colors.bg },
+  flex:         { flex: 1 },
   container:    { flexGrow: 1, justifyContent: 'center', padding: Space.xl },
-  logoWrap:     { alignItems: 'center', marginBottom: Space.xxl },
+  logoWrap:     { alignItems: 'center', marginBottom: Space.xxl + 8 },
   logo:         {
-    width: 72, height: 72, borderRadius: Radius.xl,
-    backgroundColor: Colors.teal,
+    width: 80, height: 80, borderRadius: Radius.xl,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: Space.md,
-    ...Shadow.strong,
+    marginBottom: Space.lg,
+    ...Shadow.glow,
   },
-  logoIcon:     { fontSize: 34 },
-  appName:      { fontSize: FontSize.xxl, fontWeight: FontWeight.semi, color: Colors.textPrimary, letterSpacing: -0.5 },
+  logoIcon:     { fontSize: 36 },
+  appName:      { fontSize: FontSize.hero, fontWeight: FontWeight.bold, color: Colors.textPrimary, letterSpacing: -0.8 },
   tagline:      { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Space.xs },
   card:         {
     backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     padding: Space.xl,
-    borderWidth: 0.5,
+    borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.card,
+    ...Shadow.elevated,
   },
-  cardTitle:    { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary, marginBottom: Space.lg },
-  label:        { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.4, textTransform: 'uppercase' },
+  cardTitle:    { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+  cardSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Space.xs, marginBottom: Space.xl },
+  label:        { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.5, textTransform: 'uppercase' },
   input:        {
     backgroundColor: Colors.bgSecondary,
-    borderWidth: 0.5, borderColor: Colors.border,
+    borderWidth: 1, borderColor: Colors.border,
     borderRadius: Radius.sm,
-    paddingHorizontal: Space.md, paddingVertical: 11,
+    paddingHorizontal: Space.lg, paddingVertical: 14,
     fontSize: FontSize.md, color: Colors.textPrimary,
     marginBottom: Space.md,
   },
   errorText:    { fontSize: FontSize.xs, color: Colors.danger, marginBottom: Space.sm, marginTop: -Space.xs },
   btn:          {
-    backgroundColor: Colors.teal,
     borderRadius: Radius.sm,
-    paddingVertical: 13,
+    overflow: 'hidden',
+    marginTop: Space.sm,
+  },
+  btnGradient:  {
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: Space.xs,
+    borderRadius: Radius.sm,
   },
   btnDisabled:  { opacity: 0.45 },
-  btnText:      { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.medium },
-  divider:      { flexDirection: 'row', alignItems: 'center', marginVertical: Space.md },
-  dividerLine:  { flex: 1, height: 0.5, backgroundColor: Colors.border },
-  dividerText:  { fontSize: FontSize.xs, color: Colors.textTertiary, marginHorizontal: Space.sm },
+  btnText:      { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semi },
+  divider:      { flexDirection: 'row', alignItems: 'center', marginVertical: Space.lg },
+  dividerLine:  { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerText:  { fontSize: FontSize.xs, color: Colors.textTertiary, marginHorizontal: Space.md },
   outlineBtn:   {
-    borderWidth: 0.5, borderColor: Colors.borderMid,
+    borderWidth: 1.5, borderColor: Colors.borderMid,
     borderRadius: Radius.sm,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  outlineBtnText: { fontSize: FontSize.md, color: Colors.textSecondary },
+  outlineBtnText: { fontSize: FontSize.md, color: Colors.textSecondary, fontWeight: FontWeight.medium },
   inviteLink:   { alignItems: 'center', marginTop: Space.xl },
   inviteLinkText: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  inviteLinkAccent: { color: Colors.teal, fontWeight: FontWeight.medium },
+  inviteLinkAccent: { color: Colors.teal, fontWeight: FontWeight.semi },
 })

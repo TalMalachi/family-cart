@@ -1,5 +1,6 @@
 import { Tabs }       from 'expo-router'
-import { Colors, FontSize } from '../../utils/theme'
+import { View, Text, StyleSheet } from 'react-native'
+import { Colors, FontSize, Radius, Shadow, Space } from '../../utils/theme'
 import { useAuth }    from '../../store/auth'
 
 export default function TabsLayout() {
@@ -13,15 +14,24 @@ export default function TabsLayout() {
         tabBarActiveTintColor:   Colors.teal,
         tabBarInactiveTintColor: Colors.textTertiary,
         tabBarStyle: {
+          position: 'absolute',
+          bottom: 16,
+          left: 20,
+          right: 20,
           backgroundColor: Colors.bgCard,
-          borderTopWidth: 0.5,
-          borderTopColor: Colors.border,
-          paddingBottom: 6,
-          height: 58,
+          borderRadius: Radius.xl,
+          height: 64,
+          borderTopWidth: 0,
+          paddingBottom: 0,
+          ...Shadow.elevated,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 8,
         },
         tabBarLabelStyle: {
           fontSize: FontSize.xs,
-          fontWeight: '500',
+          fontWeight: '600',
+          marginTop: 2,
         },
       }}
     >
@@ -29,14 +39,14 @@ export default function TabsLayout() {
         name="lists"
         options={{
           title: 'Lists',
-          tabBarIcon: ({ color }) => <TabBarEmoji emoji="☑" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon emoji="☑" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
           title: 'Expenses',
-          tabBarIcon: ({ color }) => <TabBarEmoji emoji="₪" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon emoji="₪" color={color} focused={focused} />,
           href: isAdmin ? undefined : null,
         }}
       />
@@ -44,7 +54,7 @@ export default function TabsLayout() {
         name="members"
         options={{
           title: 'Family',
-          tabBarIcon: ({ color }) => <TabBarEmoji emoji="👥" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon emoji="👥" color={color} focused={focused} />,
           href: isAdmin ? undefined : null,
         }}
       />
@@ -52,14 +62,30 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarEmoji emoji="👤" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon emoji="👤" color={color} focused={focused} />,
         }}
       />
     </Tabs>
   )
 }
 
-import { Text } from 'react-native'
-function TabBarEmoji({ emoji, color }: { emoji: string; color: string }) {
-  return <Text style={{ fontSize: 20, color }}>{emoji}</Text>
+function TabBarIcon({ emoji, color, focused }: { emoji: string; color: string; focused: boolean }) {
+  return (
+    <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
+      <Text style={{ fontSize: 18, color }}>{emoji}</Text>
+    </View>
+  )
 }
+
+const tabStyles = StyleSheet.create({
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapActive: {
+    backgroundColor: Colors.tealLight,
+  },
+})

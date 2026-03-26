@@ -4,6 +4,7 @@ import {
   Image, RefreshControl, TextInput, Modal, Alert, ActivityIndicator,
   ScrollView,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api }               from '../../services/api'
@@ -11,9 +12,7 @@ import { PermissionGate }    from '../../components/common/PermissionGate'
 import { shareListToWhatsApp } from '../../utils/whatsapp'
 import StitchCard from '../../components/common/StitchCard'
 import type { ShoppingList, ShoppingItem } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
-
-// ── Single item row ───────────────────────────────────────────────────────────
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 function ItemRow({
   item,
@@ -29,13 +28,11 @@ function ItemRow({
 
   return (
     <StitchCard style={styles.itemRow} contentStyle={styles.itemRowContent}>
-      {/* Check circle */}
       <PermissionGate require="lists.write">
         <TouchableOpacity style={[styles.circle, item.isPurchased && styles.circleDone]} onPress={onToggle}>
           {item.isPurchased && <Text style={styles.checkMark}>✓</Text>}
         </TouchableOpacity>
       </PermissionGate>
-      {/* Without write perm: static indicator */}
       <PermissionGate require="lists.write" fallback={
         <View style={[styles.circle, item.isPurchased && styles.circleDone, { opacity: 0.5 }]}>
           {item.isPurchased && <Text style={styles.checkMark}>✓</Text>}
@@ -44,7 +41,6 @@ function ItemRow({
         {null}
       </PermissionGate>
 
-      {/* Info */}
       <TouchableOpacity style={styles.itemInfo} onPress={onPress} activeOpacity={0.7}>
         <Text style={[styles.itemName, item.isPurchased && styles.itemNameDone]} numberOfLines={1}>
           {item.name}
@@ -58,7 +54,6 @@ function ItemRow({
         </View>
       </TouchableOpacity>
 
-      {/* Product image thumbnail */}
       <TouchableOpacity onPress={onPress}>
         {primaryImg
           ? <Image source={{ uri: primaryImg.url }} style={styles.itemThumb} />
@@ -70,8 +65,6 @@ function ItemRow({
     </StitchCard>
   )
 }
-
-// ── Category constants ────────────────────────────────────────────────────────
 
 const CATEGORIES = [
   { key: 'Produce',       icon: '🥬', he: 'ירקות ופירות' },
@@ -89,8 +82,6 @@ const CATEGORIES = [
 ] as const
 
 const CATEGORY_ORDER = Object.fromEntries(CATEGORIES.map((c, i) => [c.key, i]))
-
-// ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ListDetailScreen() {
   const { id }        = useLocalSearchParams<{ id: string }>()
@@ -131,7 +122,6 @@ export default function ListDetailScreen() {
       if (!map.has(cat)) map.set(cat, [])
       map.get(cat)!.push(item)
     }
-    // Sort categories: known categories in defined order, unknown ones at end alphabetically
     return [...map.entries()].sort((a, b) => {
       const oa = CATEGORY_ORDER[a[0]] ?? 900
       const ob = CATEGORY_ORDER[b[0]] ?? 900
@@ -159,8 +149,13 @@ export default function ListDetailScreen() {
   return (
     <View style={styles.container}>
       {/* Nav bar */}
-      <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => router.back()}>
+      <LinearGradient
+        colors={Gradients.teal as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.navBar}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.navBackBtn}>
           <Text style={styles.navBack}>←</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>{list.name}</Text>
@@ -170,8 +165,10 @@ export default function ListDetailScreen() {
         >
           <Text style={styles.waShareBtnText}>📱</Text>
         </TouchableOpacity>
-        <Text style={styles.navProgress}>{purchased}/{total}</Text>
-      </View>
+        <View style={styles.navProgressBadge}>
+          <Text style={styles.navProgress}>{purchased}/{total}</Text>
+        </View>
+      </LinearGradient>
 
       {/* Progress bar */}
       <View style={styles.progBg}>
@@ -251,10 +248,17 @@ export default function ListDetailScreen() {
                 disabled={!addName || addMutation.isPending}
                 onPress={() => addMutation.mutate()}
               >
-                {addMutation.isPending
-                  ? <ActivityIndicator color={Colors.white} />
-                  : <Text style={styles.saveBtnText}>Add item</Text>
-                }
+                <LinearGradient
+                  colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveBtnInner}
+                >
+                  {addMutation.isPending
+                    ? <ActivityIndicator color={Colors.white} />
+                    : <Text style={styles.saveBtnText}>Add item</Text>
+                  }
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -267,51 +271,54 @@ export default function ListDetailScreen() {
 const styles = StyleSheet.create({
   container:       { flex: 1, backgroundColor: Colors.bg },
   center:          { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navBar:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md, backgroundColor: Colors.teal, gap: Space.sm },
-  navBack:         { fontSize: FontSize.xl, color: Colors.white, marginRight: Space.xs },
-  navTitle:        { flex: 1, fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.white },
-  navProgress:     { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.8)' },
-  waShareBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  navBar:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.xl, paddingTop: 60, paddingBottom: Space.lg, gap: Space.sm },
+  navBackBtn:      { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  navBack:         { fontSize: FontSize.lg, color: Colors.white },
+  navTitle:        { flex: 1, fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.white },
+  navProgressBadge:{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 4 },
+  navProgress:     { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
+  waShareBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   waShareBtnText:  { fontSize: 16 },
-  progBg:          { height: 3, backgroundColor: 'rgba(0,0,0,0.08)' },
-  progFill:        { height: '100%', backgroundColor: Colors.white },
-  content:         { padding: Space.lg, paddingBottom: 80 },
-  sectionLabel:    { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: Space.md, marginBottom: Space.xs },
-  itemRow:         { marginBottom: 6 },
-  itemRowContent:  { flexDirection: 'row', alignItems: 'center', gap: Space.sm, padding: Space.md },
-  circle:          { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: Colors.borderMid, alignItems: 'center', justifyContent: 'center' },
+  progBg:          { height: 4, backgroundColor: Colors.bgSecondary },
+  progFill:        { height: '100%', backgroundColor: Colors.teal },
+  content:         { padding: Space.lg, paddingBottom: 100 },
+  sectionLabel:    { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginTop: Space.lg, marginBottom: Space.sm },
+  itemRow:         { marginBottom: Space.sm },
+  itemRowContent:  { flexDirection: 'row', alignItems: 'center', gap: Space.md, padding: Space.lg },
+  circle:          { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: Colors.borderMid, alignItems: 'center', justifyContent: 'center' },
   circleDone:      { backgroundColor: Colors.teal, borderColor: Colors.teal },
-  checkMark:       { color: Colors.white, fontSize: 13, fontWeight: FontWeight.semi },
+  checkMark:       { color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold },
   itemInfo:        { flex: 1 },
-  itemName:        { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: FontWeight.medium },
+  itemName:        { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: FontWeight.semi },
   itemNameDone:    { color: Colors.textTertiary, textDecorationLine: 'line-through' },
-  itemMeta:        { flexDirection: 'row', alignItems: 'center', gap: Space.xs, marginTop: 2 },
+  itemMeta:        { flexDirection: 'row', alignItems: 'center', gap: Space.xs, marginTop: 3 },
   metaText:        { fontSize: FontSize.xs, color: Colors.textSecondary },
-  altBadge:        { backgroundColor: Colors.tealLight, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
-  altBadgeText:    { fontSize: 10, color: Colors.tealDark, fontWeight: FontWeight.medium },
-  itemThumb:       { width: 40, height: 40, borderRadius: Radius.sm, overflow: 'hidden' },
-  itemThumbEmpty:  { backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: Colors.border },
-  addRow:          { flexDirection: 'row', alignItems: 'center', gap: Space.sm, padding: Space.md, borderRadius: Radius.md, borderWidth: 0.5, borderColor: Colors.borderMid, borderStyle: 'dashed', marginTop: Space.sm },
-  addPlus:         { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center' },
-  addPlusText:     { color: Colors.textSecondary, fontSize: 18, lineHeight: 22 },
-  addRowText:      { fontSize: FontSize.sm, color: Colors.textSecondary },
-  modalBg:         { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  altBadge:        { backgroundColor: Colors.tealLight, borderRadius: Radius.full, paddingHorizontal: 6, paddingVertical: 2 },
+  altBadgeText:    { fontSize: 10, color: Colors.teal, fontWeight: FontWeight.semi },
+  itemThumb:       { width: 44, height: 44, borderRadius: Radius.sm, overflow: 'hidden' },
+  itemThumbEmpty:  { backgroundColor: Colors.bgSecondary, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  addRow:          { flexDirection: 'row', alignItems: 'center', gap: Space.md, padding: Space.lg, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.borderMid, borderStyle: 'dashed', marginTop: Space.md },
+  addPlus:         { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.tealLight, alignItems: 'center', justifyContent: 'center' },
+  addPlusText:     { color: Colors.teal, fontSize: 18, lineHeight: 22, fontWeight: FontWeight.semi },
+  addRowText:      { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: FontWeight.medium },
+  modalBg:         { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet:           { backgroundColor: Colors.bgCard, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Space.xl, paddingBottom: 40 },
-  sheetHandle:     { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Space.lg },
-  sheetTitle:      { fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.textPrimary, marginBottom: Space.lg },
-  label:           { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: Space.xs, textTransform: 'uppercase', letterSpacing: 0.4 },
-  input:           { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
-  sheetBtns:       { flexDirection: 'row', gap: Space.sm, marginTop: Space.sm },
-  cancelBtn:       { flex: 1, borderWidth: 0.5, borderColor: Colors.borderMid, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
-  cancelBtnText:   { fontSize: FontSize.md, color: Colors.textSecondary },
-  saveBtn:         { flex: 1, backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
-  saveBtnText:     { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
+  sheetHandle:     { width: 40, height: 5, borderRadius: 3, backgroundColor: Colors.bgSecondary, alignSelf: 'center', marginBottom: Space.xl },
+  sheetTitle:      { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary, marginBottom: Space.xl },
+  label:           { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input:           { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.lg, paddingVertical: 14, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.md },
+  sheetBtns:       { flexDirection: 'row', gap: Space.md, marginTop: Space.sm },
+  cancelBtn:       { flex: 1, borderWidth: 1.5, borderColor: Colors.borderMid, borderRadius: Radius.sm, paddingVertical: 15, alignItems: 'center' },
+  cancelBtnText:   { fontSize: FontSize.md, color: Colors.textSecondary, fontWeight: FontWeight.medium },
+  saveBtn:         { flex: 1, borderRadius: Radius.sm, overflow: 'hidden' },
+  saveBtnInner:    { paddingVertical: 15, alignItems: 'center', borderRadius: Radius.sm },
+  saveBtnText:     { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.semi },
   btnDisabled:     { opacity: 0.45 },
-  catScroll:         { marginBottom: Space.md, maxHeight: 70 },
+  catScroll:         { marginBottom: Space.lg, maxHeight: 72 },
   catScrollContent:  { gap: 8, paddingRight: Space.md },
-  catChip:           { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 64 },
+  catChip:           { alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 68 },
   catChipSelected:   { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
-  catIcon:           { fontSize: 20, marginBottom: 2 },
-  catLabel:          { fontSize: 10, fontWeight: FontWeight.medium, color: Colors.textSecondary },
+  catIcon:           { fontSize: 22, marginBottom: 3 },
+  catLabel:          { fontSize: 10, fontWeight: FontWeight.semi, color: Colors.textSecondary },
   catLabelSelected:  { color: Colors.tealDark },
 })

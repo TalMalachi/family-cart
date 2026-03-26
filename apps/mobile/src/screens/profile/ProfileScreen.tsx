@@ -3,11 +3,13 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, Alert, ActivityIndicator,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useMutation } from '@tanstack/react-query'
 import { api }        from '../../services/api'
 import { useAuth }    from '../../store/auth'
-import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 import StitchCard     from '../../components/common/StitchCard'
+import GradientHeader from '../../components/common/GradientHeader'
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth()
@@ -17,7 +19,6 @@ export default function ProfileScreen() {
   const [email, setEmail]       = useState('')
   const [loaded, setLoaded]     = useState(false)
 
-  // Load current user info from server
   useEffect(() => {
     api.get('/auth/profile').then(res => {
       setFullName(res.data.fullName ?? '')
@@ -55,7 +56,6 @@ export default function ProfileScreen() {
     updateMutation.mutate(data)
   }
 
-  // ─── Change password ────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw]         = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -100,9 +100,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
+      <GradientHeader title="Profile" />
 
       <ScrollView contentContainerStyle={styles.content}>
         {!loaded ? (
@@ -111,12 +109,19 @@ export default function ProfileScreen() {
           <>
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <View style={styles.avatar}>
+              <LinearGradient
+                colors={Gradients.tealExt as unknown as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatar}
+              >
                 <Text style={styles.avatarText}>
                   {(fullName || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </Text>
+              </LinearGradient>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>{user?.role ?? 'member'}</Text>
               </View>
-              <Text style={styles.roleBadge}>{user?.role ?? 'member'}</Text>
             </View>
 
             {/* Form */}
@@ -158,10 +163,17 @@ export default function ProfileScreen() {
                 disabled={updateMutation.isPending}
                 onPress={handleSave}
               >
-                {updateMutation.isPending
-                  ? <ActivityIndicator color={Colors.white} />
-                  : <Text style={styles.saveBtnText}>Save changes</Text>
-                }
+                <LinearGradient
+                  colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveBtnInner}
+                >
+                  {updateMutation.isPending
+                    ? <ActivityIndicator color={Colors.white} />
+                    : <Text style={styles.saveBtnText}>Save changes</Text>
+                  }
+                </LinearGradient>
               </TouchableOpacity>
             </StitchCard>
 
@@ -204,10 +216,17 @@ export default function ProfileScreen() {
                 disabled={changePwMutation.isPending}
                 onPress={handleChangePassword}
               >
-                {changePwMutation.isPending
-                  ? <ActivityIndicator color={Colors.white} />
-                  : <Text style={styles.saveBtnText}>Change password</Text>
-                }
+                <LinearGradient
+                  colors={Gradients.teal as unknown as [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveBtnInner}
+                >
+                  {changePwMutation.isPending
+                    ? <ActivityIndicator color={Colors.white} />
+                    : <Text style={styles.saveBtnText}>Change password</Text>
+                  }
+                </LinearGradient>
               </TouchableOpacity>
             </StitchCard>
 
@@ -224,21 +243,21 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: Colors.bg },
-  header:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md, backgroundColor: Colors.teal },
-  headerTitle:    { flex: 1, fontSize: FontSize.lg, fontWeight: FontWeight.semi, color: Colors.white },
-  content:        { padding: Space.lg, paddingBottom: 80 },
-  avatarSection:  { alignItems: 'center', marginBottom: Space.lg },
-  avatar:         { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.tealLight, alignItems: 'center', justifyContent: 'center', marginBottom: Space.sm },
-  avatarText:     { fontSize: 24, fontWeight: FontWeight.semi, color: Colors.tealDark },
-  roleBadge:      { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'capitalize' },
+  content:        { padding: Space.lg, paddingBottom: 100 },
+  avatarSection:  { alignItems: 'center', marginBottom: Space.xl },
+  avatar:         { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: Space.sm, ...Shadow.glow },
+  avatarText:     { fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white },
+  roleBadge:      { backgroundColor: Colors.tealLight, borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: Space.xs },
+  roleBadgeText:  { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.teal, textTransform: 'capitalize' },
   card:           { marginBottom: Space.lg },
-  cardContent:    { padding: Space.md },
-  sectionTitle:   { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.md },
-  label:          { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.textSecondary, marginBottom: 4, marginTop: Space.sm },
-  input:          { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, padding: Space.sm, fontSize: FontSize.md, color: Colors.textPrimary },
-  saveBtn:        { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 12, alignItems: 'center', marginTop: Space.lg },
+  cardContent:    { padding: Space.lg },
+  sectionTitle:   { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.textPrimary, marginBottom: Space.lg },
+  label:          { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: 4, marginTop: Space.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input:          { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.lg, paddingVertical: 14, fontSize: FontSize.md, color: Colors.textPrimary },
+  saveBtn:        { borderRadius: Radius.sm, overflow: 'hidden', marginTop: Space.lg },
+  saveBtnInner:   { paddingVertical: 14, alignItems: 'center', borderRadius: Radius.sm },
   saveBtnText:    { color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semi },
   btnDisabled:    { opacity: 0.5 },
-  logoutBtn:      { backgroundColor: Colors.dangerLight, borderRadius: Radius.sm, paddingVertical: 12, alignItems: 'center', marginTop: Space.sm },
+  logoutBtn:      { backgroundColor: Colors.dangerLight, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center', marginTop: Space.sm },
   logoutBtnText:  { color: Colors.danger, fontSize: FontSize.md, fontWeight: FontWeight.semi },
 })

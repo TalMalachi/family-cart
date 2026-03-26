@@ -4,6 +4,7 @@ import {
   TextInput, ActivityIndicator, Alert, Switch,
   KeyboardAvoidingView, Platform,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api }                 from '../../services/api'
@@ -13,7 +14,7 @@ import { AlternativesManager } from '../../components/lists/AlternativesManager'
 import { PermissionGate }      from '../../components/common/PermissionGate'
 import StitchCard              from '../../components/common/StitchCard'
 import type { ShoppingItem }   from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '../../utils/theme'
 
 const CATEGORIES = [
   { key: 'Produce',       icon: '🥬', he: 'ירקות ופירות' },
@@ -151,7 +152,6 @@ export default function ProductDetailScreen() {
     },
   })
 
-  // AI image search
   const [aiSearching, setAiSearching] = useState(false)
   const aiImageSearch = async () => {
     const n = name || item?.name
@@ -161,7 +161,6 @@ export default function ProductDetailScreen() {
       const res = await api.post('/lists/items/ai-image-search', { name: n, category: category || item?.category })
       const url = res.data?.imageUrl
       if (!url) { Alert.alert('No image found', 'Try a more specific product name.'); return }
-      // Attach the found image to the item
       await api.post(`/lists/items/${itemId}/images`, { url, isPrimary: true })
       qc.invalidateQueries({ queryKey: ['item', itemId] })
       Alert.alert('Image attached', res.data.title || 'AI image saved as primary.')
@@ -195,8 +194,13 @@ export default function ProductDetailScreen() {
       keyboardVerticalOffset={88}
     >
       {/* Nav bar */}
-      <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => router.back()}>
+      <LinearGradient
+        colors={Gradients.teal as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.navBar}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.navBackBtn}>
           <Text style={styles.navBackText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>{item.name}</Text>
@@ -212,7 +216,7 @@ export default function ProductDetailScreen() {
             }
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
@@ -303,7 +307,7 @@ export default function ProductDetailScreen() {
             >
               {aiSearching
                 ? <ActivityIndicator color={Colors.teal} size="small" />
-                : <Text style={styles.aiFindBtnText}>🔍 Find Image by AI</Text>
+                : <Text style={styles.aiFindBtnText}>Find Image by AI</Text>
               }
             </TouchableOpacity>
           </PermissionGate>
@@ -334,7 +338,7 @@ export default function ProductDetailScreen() {
           </View>
         </PermissionGate>
 
-        <View style={{ height: 60 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
 
       {/* Floating save bar */}
@@ -346,10 +350,17 @@ export default function ProductDetailScreen() {
             onPress={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
           >
-            {saveMutation.isPending
-              ? <ActivityIndicator color={Colors.white} size="small" />
-              : <Text style={styles.savebarBtnText}>Save changes</Text>
-            }
+            <LinearGradient
+              colors={Gradients.teal as unknown as [string, string, ...string[]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.savebarBtnInner}
+            >
+              {saveMutation.isPending
+                ? <ActivityIndicator color={Colors.white} size="small" />
+                : <Text style={styles.savebarBtnText}>Save changes</Text>
+              }
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
@@ -360,42 +371,44 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   flex:                    { flex: 1, backgroundColor: Colors.bg },
   center:                  { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navBar:                  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingTop: 56, paddingBottom: Space.md, backgroundColor: Colors.teal, gap: Space.sm },
-  navBackText:             { fontSize: FontSize.xl, color: Colors.white, marginRight: Space.xs },
-  navTitle:                { flex: 1, fontSize: FontSize.lg, fontWeight: FontWeight.medium, color: Colors.white },
-  saveNavBtn:              { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 5 },
-  saveNavBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
-  content:                 { paddingBottom: 80 },
+  navBar:                  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.xl, paddingTop: 60, paddingBottom: Space.lg, gap: Space.sm },
+  navBackBtn:              { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  navBackText:             { fontSize: FontSize.lg, color: Colors.white },
+  navTitle:                { flex: 1, fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.white },
+  saveNavBtn:              { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.full, paddingHorizontal: Space.lg, paddingVertical: 6 },
+  saveNavBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
+  content:                 { paddingBottom: 100 },
   purchasedInfo:           { flex: 1 },
-  purchasedLabel:          { fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },
-  purchasedMeta:           { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-  purchasedIndicator:      { backgroundColor: Colors.bgSecondary, borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 4 },
+  purchasedLabel:          { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary },
+  purchasedMeta:           { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 3 },
+  purchasedIndicator:      { backgroundColor: Colors.bgSecondary, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 4 },
   purchasedIndicatorOn:    { backgroundColor: Colors.tealLight },
   purchasedIndicatorText:  { fontSize: FontSize.sm, color: Colors.textSecondary },
   section:                 { marginTop: Space.xl },
-  sectionTitle:            { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginHorizontal: Space.lg, marginBottom: Space.sm },
-  fieldRow:                { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
-  fieldLabel:              { width: 110, fontSize: FontSize.sm, color: Colors.textSecondary },
+  sectionTitle:            { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginHorizontal: Space.lg, marginBottom: Space.sm },
+  fieldRow:                { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  fieldLabel:              { width: 110, fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: FontWeight.medium },
   fieldInput:              { flex: 1, fontSize: FontSize.md, color: Colors.textPrimary, paddingVertical: 2 },
   fieldInputDisabled:      { color: Colors.textTertiary },
   readonlyBlock:           { padding: Space.lg },
-  readonlyName:            { fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },
+  readonlyName:            { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary },
   readonlyMeta:            { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Space.xs },
   dangerZone:              { marginHorizontal: Space.lg, marginTop: Space.xl },
-  deleteItemBtn:           { borderWidth: 0.5, borderColor: Colors.danger + '55', borderRadius: Radius.sm, paddingVertical: 12, alignItems: 'center' },
-  deleteItemBtnText:       { fontSize: FontSize.sm, color: Colors.danger, fontWeight: FontWeight.medium },
-  savebar:                 { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bgCard, borderTopWidth: 0.5, borderTopColor: Colors.border, paddingHorizontal: Space.lg, paddingVertical: Space.md, paddingBottom: 28, gap: Space.sm },
-  savebarMsg:              { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
-  savebarBtn:              { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingHorizontal: Space.xl, paddingVertical: 11 },
-  savebarBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
-  aiFindBtn:               { borderTopWidth: 0.5, borderTopColor: Colors.border, paddingVertical: 12, alignItems: 'center' },
-  aiFindBtnText:           { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.medium },
-  categoryPickerRow:       { paddingHorizontal: Space.lg, paddingTop: 10, paddingBottom: 4 },
-  catScroll:               { paddingHorizontal: Space.lg, paddingBottom: 10, maxHeight: 64 },
-  catScrollContent:        { gap: 6 },
-  catChip:                 { alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 8, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 56 },
+  deleteItemBtn:           { borderWidth: 1.5, borderColor: Colors.danger + '44', borderRadius: Radius.sm, paddingVertical: 14, alignItems: 'center' },
+  deleteItemBtnText:       { fontSize: FontSize.sm, color: Colors.danger, fontWeight: FontWeight.semi },
+  savebar:                 { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bgCard, borderTopWidth: 1, borderTopColor: Colors.border, paddingHorizontal: Space.lg, paddingVertical: Space.md, paddingBottom: 28, gap: Space.md, ...Shadow.elevated },
+  savebarMsg:              { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: FontWeight.medium },
+  savebarBtn:              { borderRadius: Radius.sm, overflow: 'hidden' },
+  savebarBtnInner:         { paddingHorizontal: Space.xl, paddingVertical: 12, borderRadius: Radius.sm },
+  savebarBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
+  aiFindBtn:               { borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 14, alignItems: 'center' },
+  aiFindBtnText:           { fontSize: FontSize.sm, color: Colors.teal, fontWeight: FontWeight.semi },
+  categoryPickerRow:       { paddingHorizontal: Space.lg, paddingTop: 12, paddingBottom: 4 },
+  catScroll:               { paddingHorizontal: Space.lg, paddingBottom: 12, maxHeight: 68 },
+  catScrollContent:        { gap: 8 },
+  catChip:                 { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.bgSecondary, minWidth: 60 },
   catChipSelected:         { borderColor: Colors.teal, backgroundColor: Colors.tealLight },
-  catChipIcon:             { fontSize: 18, marginBottom: 1 },
-  catChipLabel:            { fontSize: 9, fontWeight: FontWeight.medium, color: Colors.textSecondary },
+  catChipIcon:             { fontSize: 20, marginBottom: 2 },
+  catChipLabel:            { fontSize: 9, fontWeight: FontWeight.semi, color: Colors.textSecondary },
   catChipLabelSelected:    { color: Colors.tealDark },
 } as const)
