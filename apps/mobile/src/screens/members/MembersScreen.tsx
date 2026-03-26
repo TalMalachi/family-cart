@@ -134,6 +134,32 @@ export default function MembersScreen() {
     },
   })
 
+  // ─── Set password state ─────────────────────────────────────
+  const [showSetPassword, setShowSetPassword] = useState(false)
+  const [passwordTarget, setPasswordTarget] = useState<{ userId: string; fullName: string } | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+
+  const setPasswordMutation = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      api.put('/auth/admin-set-password', { userId, password }),
+    onSuccess: () => {
+      Alert.alert('Success', `Password updated for ${passwordTarget?.fullName}`)
+      setShowSetPassword(false)
+      setNewPassword('')
+      setPasswordTarget(null)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Failed to update password'
+      Alert.alert('Error', msg)
+    },
+  })
+
+  const handleSetPassword = (m: FamilyMember) => {
+    setPasswordTarget({ userId: m.userId, fullName: m.user.fullName })
+    setNewPassword('')
+    setShowSetPassword(true)
+  }
+
   const removeMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/members/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
@@ -197,6 +223,12 @@ export default function MembersScreen() {
                         onPress={() => router.push(`/(tabs)/members/${m.id}/permissions`)}
                       >
                         <Text style={styles.actionBtnText}>Permissions</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleSetPassword(m)}
+                      >
+                        <Text style={styles.actionBtnText}>Set Password</Text>
                       </TouchableOpacity>
                       <PermissionGate require="mem.remove">
                         <TouchableOpacity style={styles.removeBtn} onPress={() => confirmRemove(m)}>
@@ -295,6 +327,41 @@ export default function MembersScreen() {
                 {saveWaLinkMutation.isPending
                   ? <ActivityIndicator color={Colors.white} />
                   : <Text style={styles.saveBtnText}>Save Link</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Set Password modal */}
+      <Modal visible={showSetPassword} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={styles.modalBg}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Set Password</Text>
+            <Text style={styles.label}>New password for {passwordTarget?.fullName}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Min 8 characters"
+              placeholderTextColor={Colors.textTertiary}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              autoFocus
+            />
+            <View style={styles.sheetBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowSetPassword(false); setNewPassword('') }}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, newPassword.length < 8 && styles.btnDisabled]}
+                disabled={newPassword.length < 8 || setPasswordMutation.isPending}
+                onPress={() => passwordTarget && setPasswordMutation.mutate({ userId: passwordTarget.userId, password: newPassword })}
+              >
+                {setPasswordMutation.isPending
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={styles.saveBtnText}>Save Password</Text>
                 }
               </TouchableOpacity>
             </View>
