@@ -1866,6 +1866,14 @@ async function loadMembers() {
                     onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}')">
                     Edit
                   </button>
+                  \${m.mustChangePassword ? \`
+                  <button
+                    class="btn"
+                    style="font-size:12px;padding:6px 10px;margin-right:6px;background:#25D366;color:#fff;border:none;border-radius:6px;cursor:pointer"
+                    onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">
+                    Resend Invite
+                  </button>
+                  \` : ''}
                   <button
                     class="btn btn-danger"
                     style="font-size:12px;padding:6px 10px"
@@ -1918,6 +1926,20 @@ document.getElementById('sendInviteBtn').onclick = async () => {
     toast(e.message, true);
   }
 };
+
+async function resendInvite(userId, encodedPhone, encodedName) {
+  const phone = decodeURIComponent(encodedPhone);
+  const fullName = decodeURIComponent(encodedName);
+  if (!confirm('Resend invitation to ' + fullName + ' via WhatsApp?')) return;
+  try {
+    const res = await api('POST', '/auth/invite/resend', { userId });
+    const msg = encodeURIComponent('Hi ' + fullName + '! You\\'re invited to FamilyCart. Set your password here: ' + res.inviteUrl);
+    window.open('https://wa.me/' + phone.replace(/[^0-9]/g, '') + '?text=' + msg, '_blank');
+    toast(t('invitation_sent'));
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
 
 async function updateMemberRole(memberId, role) {
   try {

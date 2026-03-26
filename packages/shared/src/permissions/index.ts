@@ -31,8 +31,6 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
   member: [
     'lists.read',
     'lists.write',
-    'exp.read',
-    'exp.write',
     'med.view',
     'med.upload',
   ],

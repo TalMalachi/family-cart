@@ -16,6 +16,7 @@ import {
   openWhatsAppForGroupCreation,
   openWhatsAppGroup,
   isValidWhatsAppGroupLink,
+  sendWhatsAppMessage,
 } from '../../utils/whatsapp'
 
 function Avatar({ name, color }: { name: string; color: string }) {
@@ -160,6 +161,30 @@ export default function MembersScreen() {
     setShowSetPassword(true)
   }
 
+  const resendInviteMutation = useMutation({
+    mutationFn: (userId: string) => api.post('/auth/invite/resend', { userId }),
+    onSuccess: async (res) => {
+      const { inviteUrl, phone, fullName } = res.data
+      const message = `Hi ${fullName}! You're invited to FamilyCart. Set your password here: ${inviteUrl}`
+      await sendWhatsAppMessage(phone, message)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Failed to resend invitation'
+      Alert.alert('Error', msg)
+    },
+  })
+
+  const handleResendInvite = (m: FamilyMember) => {
+    Alert.alert(
+      'Resend Invitation',
+      `Resend invite to ${m.user.fullName} via WhatsApp?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Resend', onPress: () => resendInviteMutation.mutate(m.userId) },
+      ],
+    )
+  }
+
   const removeMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/members/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
@@ -233,6 +258,18 @@ export default function MembersScreen() {
                         {m.userId === user?.id ? 'Change My Password' : 'Set Password'}
                       </Text>
                     </TouchableOpacity>
+                    {m.userId !== user?.id && m.mustChangePassword && hasWhatsApp && (
+                      <TouchableOpacity
+                        style={styles.resendBtn}
+                        onPress={() => handleResendInvite(m)}
+                        disabled={resendInviteMutation.isPending}
+                      >
+                        {resendInviteMutation.isPending
+                          ? <ActivityIndicator color={Colors.white} size="small" />
+                          : <Text style={styles.resendBtnText}>Resend via WhatsApp</Text>
+                        }
+                      </TouchableOpacity>
+                    )}
                     {m.userId !== user?.id && (
                       <PermissionGate require="mem.remove">
                         <TouchableOpacity style={styles.removeBtn} onPress={() => confirmRemove(m)}>
@@ -498,6 +535,8 @@ const styles = StyleSheet.create({
   memberActions:     { flexDirection: 'row', gap: Space.xs, marginTop: Space.sm, marginLeft: 52, paddingTop: Space.sm, borderTopWidth: 0.5, borderTopColor: Colors.border },
   actionBtn:         { backgroundColor: Colors.blueLight, borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 5 },
   actionBtnText:     { fontSize: FontSize.xs, color: Colors.blue, fontWeight: FontWeight.medium },
+  resendBtn:         { backgroundColor: '#25D366', borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 5 },
+  resendBtnText:     { fontSize: FontSize.xs, color: Colors.white, fontWeight: FontWeight.medium },
   removeBtn:         { backgroundColor: Colors.dangerLight, borderRadius: Radius.sm, paddingHorizontal: Space.sm, paddingVertical: 5 },
   removeBtnText:     { fontSize: FontSize.xs, color: Colors.danger, fontWeight: FontWeight.medium },
   modalBg:           { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

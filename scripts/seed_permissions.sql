@@ -26,12 +26,14 @@ insert into role_permissions (role, permission_key)
 select 'admin', key from permissions
 on conflict do nothing;
 
--- Member gets the safe subset
+-- Member gets shopping list access only
 insert into role_permissions (role, permission_key) values
   ('member', 'lists.read'),
   ('member', 'lists.write'),
-  ('member', 'exp.read'),
-  ('member', 'exp.write'),
   ('member', 'med.view'),
   ('member', 'med.upload')
 on conflict do nothing;
+
+-- Clean up old member permissions that were removed
+delete from role_permissions
+where role = 'member' and permission_key in ('exp.read', 'exp.write');

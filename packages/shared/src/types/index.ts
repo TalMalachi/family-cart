@@ -19,6 +19,7 @@ export interface FamilyMember {
   role: Role
   status: MemberStatus
   joinedAt: string
+  mustChangePassword?: boolean
   user: Pick<User, 'id' | 'fullName' | 'phone'>
 }
 

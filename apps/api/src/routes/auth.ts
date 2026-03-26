@@ -412,6 +412,77 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.status(201).send({ message: 'Invitation created', inviteToken, inviteUrl })
   })
 
+  // POST /auth/invite/resend  — regenerate invite link for a member who hasn't accepted yet
+  app.post('/invite/resend', {
+    preHandler: requirePermission('mem.invite'),
+    config: { rateLimit: { max: 10, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
+    const { userId } = request.body as { userId?: string }
+    const { familyId, id: invitedBy } = request.user as any
+
+    if (!userId) {
+      return reply.status(400).send({ error: 'invalid_payload', message: 'userId is required' })
+    }
+
+    // Verify the member belongs to this family and hasn't set their password yet
+    const [member] = await db`
+      select u.id, u.full_name, u.phone, u.email, u.must_change_password,
+             fm.role
+      from family_members fm
+      join users u on u.id = fm.user_id
+      where fm.user_id = ${userId} and fm.family_id = ${familyId}
+    `
+    if (!member) {
+      return reply.status(404).send({ error: 'member_not_found' })
+    }
+    if (!member.mustChangePassword) {
+      return reply.status(400).send({ error: 'already_accepted', message: 'This member has already set their password' })
+    }
+
+    // Expire any previous pending invitations for this user in this family
+    await db`
+      update invitations set status = 'expired'
+      where family_id = ${familyId} and email = ${member.email} and status = 'pending'
+    `
+
+    // Generate new OTP and invitation
+    const otp = String(Math.floor(100000 + Math.random() * 900000))
+    const otpHash = await bcrypt.hash(otp, 10)
+
+    const [invitation] = await db`
+      insert into invitations
+        (family_id, phone, email, full_name, role, otp_hash, invited_by, expires_at)
+      values (
+        ${familyId}, ${member.phone}, ${member.email}, ${member.fullName}, ${member.role},
+        ${otpHash}, ${invitedBy},
+        now() + interval '7 days'
+      )
+      returning id
+    `
+
+    const inviteToken = app.jwt.sign(
+      {
+        inviteId:           invitation.id,
+        phone:              member.phone,
+        familyId,
+        role:               member.role,
+        mustChangePassword: true,
+      },
+      { expiresIn: '7d' }
+    )
+
+    const baseUrl = env.APP_URL || `http://${request.hostname}`
+    const inviteUrl = `${baseUrl}/auth/accept-invite?token=${encodeURIComponent(inviteToken)}`
+
+    return reply.status(201).send({
+      message: 'Invitation resent',
+      inviteToken,
+      inviteUrl,
+      phone: member.phone,
+      fullName: member.fullName,
+    })
+  })
+
   // PUT /auth/admin-set-password  — admin sets/resets a member's password
   app.put('/admin-set-password', {
     preHandler: requirePermission('mem.perms'),
@@ -442,6 +513,68 @@ export async function authRoutes(app: FastifyInstance) {
     `
 
     return { message: 'Password updated successfully' }
+  })
+
+  // GET /auth/profile  — return current user's own info
+  app.get('/profile', async (request, reply) => {
+    const { id: userId } = request.user as any
+    if (!userId) return reply.status(401).send({ error: 'unauthorized' })
+
+    const [user] = await db`
+      select id, full_name, phone, email from users where id = ${userId}
+    `
+    if (!user) return reply.status(404).send({ error: 'user_not_found' })
+    return user
+  })
+
+  // PATCH /auth/profile  — any authenticated user updates their own info
+  app.patch('/profile', async (request, reply) => {
+    const { id: userId } = request.user as any
+    if (!userId) return reply.status(401).send({ error: 'unauthorized' })
+
+    const { fullName, phone, email } = request.body as { fullName?: string; phone?: string; email?: string }
+
+    if (!fullName && !phone && !email) {
+      return reply.status(400).send({ error: 'no_fields_to_update', message: 'Provide at least one field to update' })
+    }
+
+    const updates: Record<string, string> = {}
+
+    if (fullName) {
+      const v = fullName.trim()
+      if (v.length < 2 || v.length > 80) return reply.status(400).send({ error: 'invalid_full_name', message: 'Name must be 2-80 characters' })
+      updates.full_name = v
+    }
+
+    if (phone) {
+      const v = phone.trim()
+      if (!/^\+?[1-9]\d{7,14}$/.test(v)) return reply.status(400).send({ error: 'invalid_phone', message: 'Invalid phone number format' })
+      updates.phone = v
+    }
+
+    if (email) {
+      const v = email.trim().toLowerCase()
+      if (!/^\S+@\S+\.\S+$/.test(v)) return reply.status(400).send({ error: 'invalid_email', message: 'Invalid email format' })
+      updates.email = v
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return reply.status(200).send({ message: 'No changes' })
+    }
+
+    try {
+      const [updated] = await db`
+        update users set ${db(updates)}
+        where id = ${userId}
+        returning id, full_name, phone, email
+      `
+      return reply.status(200).send(updated)
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        return reply.status(409).send({ error: 'email_or_phone_already_exists', message: 'Email or phone already in use' })
+      }
+      throw err
+    }
   })
 
   // POST /auth/verify-sms  — member enters 6-digit code

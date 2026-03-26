@@ -2,12 +2,9 @@ import { Tabs }       from 'expo-router'
 import { Colors, FontSize } from '../../utils/theme'
 import { useAuth }    from '../../store/auth'
 
-function TabIcon({ label, emoji, focused }: { label: string; emoji: string; focused: boolean }) {
-  return null  // Expo Router handles icon via tabBarIcon prop
-}
-
 export default function TabsLayout() {
-  const { can } = useAuth()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   return (
     <Tabs
@@ -40,6 +37,7 @@ export default function TabsLayout() {
         options={{
           title: 'Expenses',
           tabBarIcon: ({ color }) => <TabBarEmoji emoji="₪" color={color} />,
+          href: isAdmin ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -47,6 +45,14 @@ export default function TabsLayout() {
         options={{
           title: 'Family',
           tabBarIcon: ({ color }) => <TabBarEmoji emoji="👥" color={color} />,
+          href: isAdmin ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <TabBarEmoji emoji="👤" color={color} />,
         }}
       />
     </Tabs>

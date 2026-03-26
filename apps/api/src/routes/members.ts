@@ -12,7 +12,8 @@ export async function membersRoutes(app: FastifyInstance) {
     const { familyId } = request.user as any
     return db`
       select fm.id, fm.role, fm.status, fm.joined_at,
-             u.id as user_id, u.full_name, u.phone, u.email
+             u.id as user_id, u.full_name, u.phone, u.email,
+             u.must_change_password
       from family_members fm
       join users u on u.id = fm.user_id
       where fm.family_id = ${familyId}
