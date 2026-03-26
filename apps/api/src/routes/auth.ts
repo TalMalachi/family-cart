@@ -412,6 +412,38 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.status(201).send({ message: 'Invitation created', inviteToken, inviteUrl })
   })
 
+  // PUT /auth/admin-set-password  — admin sets/resets a member's password
+  app.put('/admin-set-password', {
+    preHandler: requirePermission('mem.perms'),
+  }, async (request, reply) => {
+    const { userId, password } = request.body as { userId?: string; password?: string }
+    const { familyId } = request.user as any
+
+    if (!userId || !password) {
+      return reply.status(400).send({ error: 'invalid_payload', message: 'userId and password are required' })
+    }
+    if (password.length < 8) {
+      return reply.status(400).send({ error: 'invalid_payload', message: 'Password must be at least 8 characters' })
+    }
+
+    // Verify target user is a member of the same family
+    const [member] = await db`
+      select fm.user_id from family_members fm
+      where fm.user_id = ${userId} and fm.family_id = ${familyId} and fm.status = 'active'
+    `
+    if (!member) {
+      return reply.status(404).send({ error: 'member_not_found', message: 'User is not an active member of your family' })
+    }
+
+    const hash = await bcrypt.hash(password, 12)
+    await db`
+      update users set password_hash = ${hash}, must_change_password = false
+      where id = ${userId}
+    `
+
+    return { message: 'Password updated successfully' }
+  })
+
   // POST /auth/verify-sms  — member enters 6-digit code
   app.post('/verify-sms', async (request, reply) => {
     const body = VerifySmsSchema.parse(request.body)
