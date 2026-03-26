@@ -330,7 +330,18 @@ export async function authRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const parsed = InviteMemberSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'invalid_payload', issues: parsed.error.issues })
+      const fieldErrors = parsed.error.issues.map(issue => {
+        const field = issue.path.join('.')
+        return `${field}: ${issue.message}`
+      })
+      return reply.status(400).send({
+        error: 'invalid_payload',
+        message: `Invalid fields: ${fieldErrors.join('; ')}`,
+        fields: parsed.error.issues.map(issue => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
+      })
     }
     const body = parsed.data
     const { familyId, id: invitedBy } = request.user as any
