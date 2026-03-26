@@ -22,6 +22,10 @@ export async function webRoutes(app: FastifyInstance) {
     .tabs{display:flex;gap:4px;padding:20px 24px 0;max-width:1100px;margin:0 auto}
     .tab{padding:10px 20px;border-radius:8px 8px 0 0;background:#fff;border:1px solid #e2e8f0;border-bottom:none;cursor:pointer;font-size:14px;font-weight:500;color:#64748b}
     .tab.active{background:#fff;color:#0f766e;border-bottom:2px solid #fff;font-weight:700}
+    .admin-only{display:none}
+    body.is-admin .admin-only{display:flex}
+    body.is-admin .panel.admin-only{display:none}
+    body.is-admin .panel.admin-only.active{display:block}
     /* CONTENT */
     .content{max-width:1100px;margin:0 auto;padding:0 24px 40px}
     .panel{background:#fff;border-radius:0 8px 8px 8px;border:1px solid #e2e8f0;padding:24px;display:none}
@@ -202,7 +206,7 @@ export async function webRoutes(app: FastifyInstance) {
   </div>
 
   <!-- EXPENSES PANEL -->
-  <div class="panel" id="tab-expenses">
+  <div class="panel admin-only" id="tab-expenses">
     <div class="toolbar">
       <h2 data-t="expenses">Expenses</h2>
       <button class="btn btn-primary" id="newExpenseBtn" data-t="add_expense">+ Add Expense</button>
@@ -211,7 +215,7 @@ export async function webRoutes(app: FastifyInstance) {
   </div>
 
   <!-- MEMBERS PANEL -->
-  <div class="panel" id="tab-members">
+  <div class="panel admin-only" id="tab-members">
     <div class="toolbar">
       <div>
         <h2 data-t="family_members">Family Members</h2>
@@ -223,7 +227,7 @@ export async function webRoutes(app: FastifyInstance) {
   </div>
 
   <!-- WHATSAPP CONFIG PANEL -->
-  <div class="panel" id="tab-whatsapp">
+  <div class="panel admin-only" id="tab-whatsapp">
     <div class="toolbar">
       <div>
         <h2 data-t="wa_config">📱 WhatsApp Configuration</h2>
@@ -644,9 +648,9 @@ try {
   const payload = JSON.parse(atob(token.split('.')[1]));
   currentUser = payload;
   document.getElementById('userBadge').textContent = payload.role === 'admin' ? t('admin') : t('member_role');
-  // Hide admin-only tabs for non-admin users
-  if (payload.role !== 'admin') {
-    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+  // Show admin-only tabs/panels only for admin users
+  if (payload.role === 'admin') {
+    document.body.classList.add('is-admin');
   }
 } catch {}
 
