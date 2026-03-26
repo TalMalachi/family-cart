@@ -2259,13 +2259,16 @@ async function showMemberQR(memberId) {
       waRow.style.display = 'block';
       waPhone.textContent = t('qr_wa_will_send_to') + ' ' + data.phone;
 
-      // Build message — URL at the end on its own line so WhatsApp auto-links it.
+      // Build message — URL wrapped with LRE/PDF Unicode markers so the
+      // Bidi algorithm never reorders it (critical for Hebrew/RTL mode).
+      // \\u202A = Left-to-Right Embedding, \\u202C = Pop Directional Formatting.
       var cleanPhone = data.phone.replace(/[^0-9]/g, '');
       var name = _or(data.fullName, '');
+      var safeUrl = '\\u202A' + loginUrl + '\\u202C';
       var msg = t('qr_wa_hi') + ' ' + name + '!' + '\\n\\n'
               + t('qr_wa_login_link') + '\\n'
               + t('qr_wa_instructions') + '\\n\\n'
-              + loginUrl;
+              + safeUrl;
       waLink.onclick = function(e) {
         e.preventDefault();
         window.open('https://wa.me/' + cleanPhone + '?text=' + encodeURIComponent(msg), '_blank');
