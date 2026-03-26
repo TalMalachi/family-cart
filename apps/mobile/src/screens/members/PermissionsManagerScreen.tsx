@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Switch, ActivityIndicator, Alert,
+  StyleSheet, Switch, ActivityIndicator, Alert, TextInput,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -13,6 +13,7 @@ import StitchCard from '../../components/common/StitchCard'
 
 interface MemberPerms {
   memberId: string
+  userId: string
   fullName: string
   role: 'admin' | 'member'
   roleDefaults: PermissionKey[]
@@ -83,6 +84,22 @@ export default function PermissionsManagerScreen() {
   const resetMutation = useMutation({
     mutationFn: () => api.delete(`/permissions/member/${memberId}/reset`),
     onSuccess: () => { setPending({}); refetch() },
+  })
+
+  // ─── Set password ──────────────────────────────────────────
+  const [newPassword, setNewPassword] = useState('')
+
+  const setPasswordMutation = useMutation({
+    mutationFn: (password: string) =>
+      api.put('/auth/admin-set-password', { userId: data?.userId, password }),
+    onSuccess: () => {
+      Alert.alert('Success', `Password updated for ${data?.fullName}`)
+      setNewPassword('')
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Failed to update password'
+      Alert.alert('Error', msg)
+    },
   })
 
   const getEffective = (key: PermissionKey): boolean => {
@@ -179,6 +196,36 @@ export default function PermissionsManagerScreen() {
           </View>
         ))}
 
+        {/* Set password section */}
+        <View style={styles.group}>
+          <Text style={styles.groupTitle}>Set Password</Text>
+          <StitchCard>
+            <View style={styles.passwordSection}>
+              <Text style={styles.passwordHint}>
+                Set a new password for {data.fullName}. Minimum 8 characters.
+              </Text>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="New password"
+                placeholderTextColor={Colors.textTertiary}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+              />
+              <TouchableOpacity
+                style={[styles.passwordBtn, newPassword.length < 8 && styles.btnDisabled]}
+                disabled={newPassword.length < 8 || setPasswordMutation.isPending}
+                onPress={() => setPasswordMutation.mutate(newPassword)}
+              >
+                {setPasswordMutation.isPending
+                  ? <ActivityIndicator color={Colors.white} size="small" />
+                  : <Text style={styles.passwordBtnText}>Update Password</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </StitchCard>
+        </View>
+
         {/* Save / reset bar */}
         <View style={styles.actionBar}>
           <TouchableOpacity
@@ -234,4 +281,9 @@ const styles = StyleSheet.create({
   saveBtn:       { flex: 1, backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },
   saveBtnText:   { fontSize: FontSize.md, color: Colors.white, fontWeight: FontWeight.medium },
   btnDisabled:   { opacity: 0.45 },
+  passwordSection: { padding: Space.md },
+  passwordHint:  { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Space.sm, lineHeight: 20 },
+  passwordInput: { backgroundColor: Colors.bgSecondary, borderWidth: 0.5, borderColor: Colors.border, borderRadius: Radius.sm, paddingHorizontal: Space.md, paddingVertical: 11, fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Space.sm },
+  passwordBtn:   { backgroundColor: Colors.teal, borderRadius: Radius.sm, paddingVertical: 12, alignItems: 'center' },
+  passwordBtnText: { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
 })
