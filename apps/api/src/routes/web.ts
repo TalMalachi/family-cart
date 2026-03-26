@@ -2259,16 +2259,17 @@ async function showMemberQR(memberId) {
       waRow.style.display = 'block';
       waPhone.textContent = t('qr_wa_will_send_to') + ' ' + data.phone;
 
-      // Build message — URL on its own line so WhatsApp auto-links it.
+      // Build message — URL at the end on its own line so WhatsApp auto-links it.
       var cleanPhone = data.phone.replace(/[^0-9]/g, '');
-      var NL = '\\n';
       var name = _or(data.fullName, '');
-      var msg = t('qr_wa_hi') + ' ' + name + '!' + NL + NL
-              + t('qr_wa_login_link') + NL
-              + loginUrl + NL + NL
-              + t('qr_wa_instructions');
-      var encoded = encodeURIComponent(msg);
-      waLink.href = 'https://api.whatsapp.com/send?phone=' + cleanPhone + '&text=' + encoded;
+      var msg = t('qr_wa_hi') + ' ' + name + '!' + '\\n\\n'
+              + t('qr_wa_login_link') + '\\n'
+              + t('qr_wa_instructions') + '\\n\\n'
+              + loginUrl;
+      waLink.onclick = function(e) {
+        e.preventDefault();
+        window.open('https://wa.me/' + cleanPhone + '?text=' + encodeURIComponent(msg), '_blank');
+      };
 
       // Copy link fallback
       waCopyBtn.onclick = function() {
