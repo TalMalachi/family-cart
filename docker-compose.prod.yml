@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  FamilyCart — Production overlay
+#
+#  Usage:
+#    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # Remove external access to PostgreSQL
+  postgres:
+    ports: !reset []
+
+  # Remove external access to Redis
+  redis:
+    ports: !reset []
+
+  # Harden API for production
+  api:
+    environment:
+      NODE_ENV:    production
+      LOG_LEVEL:   info
+      SENTRY_DSN:  ${SENTRY_DSN:-}
+    volumes: !reset []
+
+  # Disable Adminer in production
+  adminer:
+    profiles:
+      - disabled
