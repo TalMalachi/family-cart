@@ -165,11 +165,12 @@ export async function webRoutes(app: FastifyInstance) {
   </div>
 </nav>
 
-<div class="tabs">
+<div class="tabs" id="mainTabs">
   <div class="tab active" data-tab="lists" data-t="tab_lists">🛒 Shopping Lists</div>
-  <div class="tab" data-tab="expenses" data-t="tab_expenses">💸 Expenses</div>
-  <div class="tab" data-tab="members" data-t="tab_members">👥 Members</div>
-  <div class="tab" data-tab="whatsapp" data-t="tab_whatsapp">📱 WhatsApp Config</div>
+  <div class="tab admin-only" data-tab="expenses" data-t="tab_expenses">💸 Expenses</div>
+  <div class="tab admin-only" data-tab="members" data-t="tab_members">👥 Members</div>
+  <div class="tab admin-only" data-tab="whatsapp" data-t="tab_whatsapp">📱 WhatsApp Config</div>
+  <div class="tab" data-tab="profile" data-t="tab_profile">👤 Profile</div>
 </div>
 
 <div class="content">
@@ -257,6 +258,41 @@ export async function webRoutes(app: FastifyInstance) {
       <span id="waGroupCount" style="font-size:13px;color:#64748b"></span>
     </div>
     <div id="waGroupsList"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- PROFILE PANEL -->
+  <div class="panel" id="tab-profile">
+    <div class="toolbar">
+      <h2 data-t="profile_title">My Profile</h2>
+    </div>
+    <div style="max-width:480px">
+      <div style="text-align:center;margin-bottom:24px">
+        <div id="profileAvatar" style="width:72px;height:72px;border-radius:50%;background:#e1f5ee;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#085041;margin-bottom:8px"></div>
+        <div id="profileRoleBadge" style="font-size:13px;color:#64748b;text-transform:capitalize"></div>
+      </div>
+      <label data-t="full_name_label">Full name</label>
+      <input id="profileFullName" placeholder="Your name" />
+      <label data-t="phone_label">Phone number</label>
+      <input id="profilePhone" placeholder="+972 50 000 0000" />
+      <label data-t="email_label">Email</label>
+      <input id="profileEmail" type="email" placeholder="name@example.com" />
+      <div style="margin-top:20px;display:flex;gap:8px">
+        <button class="btn btn-primary" id="saveProfileBtn" data-t="save_profile">Save changes</button>
+      </div>
+
+      <hr style="margin:28px 0;border:none;border-top:1px solid #e2e8f0" />
+
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px" data-t="change_password_title">Change Password</h3>
+      <label data-t="current_password_label">Current password</label>
+      <input id="profileCurrentPw" type="password" placeholder="Enter current password" />
+      <label data-t="new_password_label">New password</label>
+      <input id="profileNewPw" type="password" placeholder="Min 8 characters" />
+      <label data-t="confirm_password_label">Confirm new password</label>
+      <input id="profileConfirmPw" type="password" placeholder="Repeat new password" />
+      <div style="margin-top:20px;display:flex;gap:8px">
+        <button class="btn btn-primary" id="changePasswordBtn" data-t="change_password_btn">Change Password</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -608,6 +644,10 @@ try {
   const payload = JSON.parse(atob(token.split('.')[1]));
   currentUser = payload;
   document.getElementById('userBadge').textContent = payload.role === 'admin' ? t('admin') : t('member_role');
+  // Hide admin-only tabs for non-admin users
+  if (payload.role !== 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+  }
 } catch {}
 
 
@@ -622,6 +662,21 @@ const _translations = {
   tab_expenses: { en: '💸 Expenses', he: '💸 הוצאות' },
   tab_members: { en: '👥 Members', he: '👥 חברים' },
   tab_whatsapp: { en: '📱 WhatsApp Config', he: '📱 הגדרות WhatsApp' },
+  tab_profile: { en: '👤 Profile', he: '👤 פרופיל' },
+  profile_title: { en: 'My Profile', he: 'הפרופיל שלי' },
+  full_name_label: { en: 'Full name', he: 'שם מלא' },
+  phone_label: { en: 'Phone number', he: 'מספר טלפון' },
+  email_label: { en: 'Email', he: 'אימייל' },
+  save_profile: { en: 'Save changes', he: 'שמור שינויים' },
+  profile_saved: { en: 'Profile updated successfully', he: 'הפרופיל עודכן בהצלחה' },
+  change_password_title: { en: 'Change Password', he: 'שינוי סיסמה' },
+  current_password_label: { en: 'Current password', he: 'סיסמה נוכחית' },
+  new_password_label: { en: 'New password', he: 'סיסמה חדשה' },
+  confirm_password_label: { en: 'Confirm new password', he: 'אישור סיסמה חדשה' },
+  change_password_btn: { en: 'Change Password', he: 'שנה סיסמה' },
+  password_changed: { en: 'Password changed successfully', he: 'הסיסמה שונתה בהצלחה' },
+  passwords_no_match: { en: 'Passwords do not match', he: 'הסיסמאות אינן תואמות' },
+  password_too_short: { en: 'Password must be at least 8 characters', he: 'הסיסמה חייבת להכיל לפחות 8 תווים' },
   // Lists
   shopping_lists: { en: 'Shopping Lists', he: 'רשימות קניות' },
   new_list: { en: '+ New List', he: '+ רשימה חדשה' },
@@ -913,6 +968,7 @@ function translatePage() {
   if (document.getElementById('tab-expenses').classList.contains('active')) loadExpenses();
   if (document.getElementById('tab-members').classList.contains('active')) loadMembers();
   if (document.getElementById('tab-whatsapp').classList.contains('active')) renderWaGroups();
+  if (document.getElementById('tab-profile').classList.contains('active')) loadProfile();
 }
 
 // Init language
@@ -959,8 +1015,54 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (tab.dataset.tab === 'expenses') loadExpenses();
     if (tab.dataset.tab === 'members') loadMembers();
     if (tab.dataset.tab === 'whatsapp') renderWaGroups();
+    if (tab.dataset.tab === 'profile') loadProfile();
   };
 });
+
+// ── Profile ───────────────────────────────────────────────────────
+async function loadProfile() {
+  try {
+    const data = await api('GET', '/auth/profile');
+    document.getElementById('profileFullName').value = _or(data.fullName, '');
+    document.getElementById('profilePhone').value = _or(data.phone, '');
+    document.getElementById('profileEmail').value = _or(data.email, '');
+    const name = _or(data.fullName, '?');
+    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('profileAvatar').textContent = initials;
+    document.getElementById('profileRoleBadge').textContent = _or(currentUser.role, 'member');
+  } catch (e) { toast(e.message, true); }
+}
+
+document.getElementById('saveProfileBtn').onclick = async () => {
+  const fullName = document.getElementById('profileFullName').value.trim();
+  const phone = document.getElementById('profilePhone').value.trim();
+  const email = document.getElementById('profileEmail').value.trim();
+  if (!fullName && !phone && !email) { toast('Please fill in at least one field', true); return; }
+  const body = {};
+  if (fullName) body.fullName = fullName;
+  if (phone) body.phone = phone;
+  if (email) body.email = email;
+  try {
+    await api('PATCH', '/auth/profile', body);
+    toast(t('profile_saved'));
+  } catch (e) { toast(e.message, true); }
+};
+
+document.getElementById('changePasswordBtn').onclick = async () => {
+  const currentPassword = document.getElementById('profileCurrentPw').value;
+  const newPassword = document.getElementById('profileNewPw').value;
+  const confirmPassword = document.getElementById('profileConfirmPw').value;
+  if (!currentPassword || !newPassword) { toast(t('password_too_short'), true); return; }
+  if (newPassword.length < 8) { toast(t('password_too_short'), true); return; }
+  if (newPassword !== confirmPassword) { toast(t('passwords_no_match'), true); return; }
+  try {
+    await api('PUT', '/auth/change-password', { currentPassword, newPassword });
+    document.getElementById('profileCurrentPw').value = '';
+    document.getElementById('profileNewPw').value = '';
+    document.getElementById('profileConfirmPw').value = '';
+    toast(t('password_changed'));
+  } catch (e) { toast(e.message, true); }
+};
 
 // ── Modal helpers ─────────────────────────────────────────────────
 document.querySelectorAll('[data-close]').forEach(btn => {

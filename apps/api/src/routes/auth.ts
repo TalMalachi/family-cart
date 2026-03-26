@@ -577,6 +577,34 @@ export async function authRoutes(app: FastifyInstance) {
     }
   })
 
+  // PUT /auth/change-password  — authenticated user changes their own password
+  app.put('/change-password', async (request, reply) => {
+    const { id: userId } = request.user as any
+    if (!userId) return reply.status(401).send({ error: 'unauthorized' })
+
+    const { currentPassword, newPassword } = request.body as { currentPassword?: string; newPassword?: string }
+
+    if (!currentPassword || !newPassword) {
+      return reply.status(400).send({ error: 'invalid_payload', message: 'currentPassword and newPassword are required' })
+    }
+    if (newPassword.length < 8) {
+      return reply.status(400).send({ error: 'invalid_payload', message: 'New password must be at least 8 characters' })
+    }
+
+    const [user] = await db`select password_hash from users where id = ${userId}`
+    if (!user) return reply.status(404).send({ error: 'user_not_found' })
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash)
+    if (!valid) {
+      return reply.status(400).send({ error: 'wrong_password', message: 'Current password is incorrect' })
+    }
+
+    const hash = await bcrypt.hash(newPassword, 12)
+    await db`update users set password_hash = ${hash} where id = ${userId}`
+
+    return { message: 'Password changed successfully' }
+  })
+
   // POST /auth/verify-sms  — member enters 6-digit code
   app.post('/verify-sms', async (request, reply) => {
     const body = VerifySmsSchema.parse(request.body)
