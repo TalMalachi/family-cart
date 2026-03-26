@@ -162,6 +162,7 @@ export async function webRoutes(app: FastifyInstance) {
 <nav>
   <h1>&#127868; FamilyCart</h1>
   <div style="display:flex;align-items:center;gap:16px">
+    <span id="welcomeBanner" style="font-size:14px;color:#fff;font-weight:500"></span>
     <select id="langSelect"><option value="en">EN</option><option value="he">עב</option></select>
     <span id="userBadge"></span>
     <button id="logoutBtn" data-t="logout">Logout</button>
@@ -656,6 +657,7 @@ try {
 // ── i18n ──────────────────────────────────────────────────────────
 const _translations = {
   // Nav
+  welcome: { en: 'Welcome,', he: 'ברוך הבא,' },
   logout: { en: 'Logout', he: 'התנתק' },
   admin: { en: '★ Admin', he: '★ מנהל' },
   member_role: { en: 'Member', he: 'חבר' },
@@ -958,6 +960,11 @@ function translatePage() {
   document.querySelectorAll('[data-t-title]').forEach(el => {
     el.title = t(el.getAttribute('data-t-title'));
   });
+  // Re-render nav badge and welcome
+  document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
+  if (currentUser.fullName) {
+    document.getElementById('welcomeBanner').textContent = t('welcome') + ' ' + currentUser.fullName;
+  }
   // Re-render dynamic content
   if (document.getElementById('tab-lists').classList.contains('active')) {
     if (currentListId) {
@@ -979,8 +986,11 @@ document.documentElement.dir = _lang === 'he' ? 'rtl' : 'ltr';
 document.getElementById('langSelect').value = _lang;
 document.getElementById('langSelect').onchange = function() { setLang(this.value); };
 
-// Set user badge now that t() is available
+// Set user badge and welcome banner now that t() is available
 document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
+if (currentUser.fullName) {
+  document.getElementById('welcomeBanner').textContent = t('welcome') + ' ' + currentUser.fullName;
+}
 
 document.getElementById('logoutBtn').onclick = () => {
   localStorage.removeItem('familycart_token');
@@ -2244,15 +2254,13 @@ async function showMemberQR(memberId) {
       waRow.style.display = 'block';
       waPhone.textContent = t('qr_wa_will_send_to') + ' ' + data.phone;
 
-      // Build message — URL goes FIRST so WhatsApp always detects it.
-      // \\u200E = Left-to-Right Mark — protects the URL from RTL reordering in Hebrew.
+      // Build message — URL on its own line so WhatsApp auto-links it.
       var cleanPhone = data.phone.replace(/[^0-9]/g, '');
-      var LRM = '\\u200E';
       var NL = '\\n';
       var name = _or(data.fullName, '');
-      var msg = LRM + loginUrl + NL + NL
-              + t('qr_wa_hi') + ' ' + name + '!' + NL + NL
+      var msg = t('qr_wa_hi') + ' ' + name + '!' + NL + NL
               + t('qr_wa_login_link') + NL
+              + loginUrl + NL + NL
               + t('qr_wa_instructions');
       var encoded = encodeURIComponent(msg);
       waLink.href = 'https://api.whatsapp.com/send?phone=' + cleanPhone + '&text=' + encoded;
