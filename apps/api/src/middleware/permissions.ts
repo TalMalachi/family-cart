@@ -37,7 +37,7 @@ export async function getUserPermissions(
   `
 
   // 3. Resolve using shared logic (same function used client-side)
-  const perms = resolvePermissions(memberRow.role, overrides)
+  const perms = resolvePermissions(memberRow.role, overrides as any)
 
   // 4. Cache for 5 minutes
   await redis.set(cacheKey, JSON.stringify([...perms]), 'EX', 300)
