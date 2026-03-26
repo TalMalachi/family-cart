@@ -477,6 +477,10 @@ export async function webRoutes(app: FastifyInstance) {
       <option value="member">Member</option>
       <option value="admin">Admin</option>
     </select>
+    <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0" />
+    <label>New Password <span style="font-weight:400;color:#94a3b8">(leave empty to keep current)</span></label>
+    <input id="editMemberPassword" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
+    <input type="hidden" id="editMemberUserId" />
     <div class="modal-footer">
       <button class="btn btn-light" data-close="editMemberModal">Cancel</button>
       <button class="btn btn-primary" id="saveMemberEditBtn">Save Changes</button>
@@ -1859,7 +1863,7 @@ async function loadMembers() {
                   <button
                     class="btn btn-light"
                     style="font-size:12px;padding:6px 10px;margin-right:6px"
-                    onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'})">
+                    onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}')">
                     Edit
                   </button>
                   <button
@@ -1937,7 +1941,7 @@ async function updateMemberStatus(memberId, status) {
   }
 }
 
-function openEditMember(memberId, currentRole, fullName, phone, email, isSelf) {
+function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, userId) {
   const selfEdit = _or(isSelf === true, isSelf === 'true');
 
   let decodedName = _or(fullName, '');
@@ -1948,9 +1952,11 @@ function openEditMember(memberId, currentRole, fullName, phone, email, isSelf) {
   try { decodedEmail = decodeURIComponent(decodedEmail); } catch {}
 
   document.getElementById('editMemberId').value = memberId;
+  document.getElementById('editMemberUserId').value = _or(userId, '');
   document.getElementById('editMemberName').value = decodedName;
   document.getElementById('editMemberPhone').value = _or(decodedPhone, '');
   document.getElementById('editMemberEmail').value = _or(decodedEmail, '');
+  document.getElementById('editMemberPassword').value = '';
   document.getElementById('editMemberRole').value = currentRole;
   document.getElementById('editMemberRole').disabled = false;
   const saveBtn = document.getElementById('saveMemberEditBtn');
@@ -1986,14 +1992,22 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     return;
   }
 
+  const newPassword = document.getElementById('editMemberPassword').value;
+  const userId = document.getElementById('editMemberUserId').value;
   const profileChanged = _or(_or(fullName !== originalName, phone !== originalPhone), email !== originalEmail);
   const roleChanged = role !== originalRole;
+  const passwordChanged = newPassword.length > 0;
 
   if (isSelf && roleChanged) {
     toast(t('cannot_change_own_role'), true);
   }
 
-  if (!profileChanged && !roleChanged) {
+  if (passwordChanged && newPassword.length < 8) {
+    toast('Password must be at least 8 characters', true);
+    return;
+  }
+
+  if (!profileChanged && !roleChanged && !passwordChanged) {
     toast(t('no_changes'));
     closeModal('editMemberModal');
     return;
@@ -2006,8 +2020,11 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     if (roleChanged && !isSelf) {
       await api('PATCH', '/members/' + memberId + '/role', { role });
     }
+    if (passwordChanged && userId) {
+      await api('PUT', '/auth/admin-set-password', { userId: userId, password: newPassword });
+    }
     closeModal('editMemberModal');
-    toast(t('member_updated'));
+    toast(passwordChanged ? t('member_updated') + ' (password changed)' : t('member_updated'));
     loadMembers();
   } catch (e) {
     toast(e.message, true);
