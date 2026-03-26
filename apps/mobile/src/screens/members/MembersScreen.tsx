@@ -216,27 +216,31 @@ export default function MembersScreen() {
 
                 {/* Admin actions */}
                 <PermissionGate require="mem.perms">
-                  {m.userId !== user?.id && (
-                    <View style={styles.memberActions}>
+                  <View style={styles.memberActions}>
+                    {m.userId !== user?.id && (
                       <TouchableOpacity
                         style={styles.actionBtn}
                         onPress={() => router.push(`/(tabs)/members/${m.id}/permissions`)}
                       >
                         <Text style={styles.actionBtnText}>Permissions</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleSetPassword(m)}
-                      >
-                        <Text style={styles.actionBtnText}>Set Password</Text>
-                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleSetPassword(m)}
+                    >
+                      <Text style={styles.actionBtnText}>
+                        {m.userId === user?.id ? 'Change My Password' : 'Set Password'}
+                      </Text>
+                    </TouchableOpacity>
+                    {m.userId !== user?.id && (
                       <PermissionGate require="mem.remove">
                         <TouchableOpacity style={styles.removeBtn} onPress={() => confirmRemove(m)}>
                           <Text style={styles.removeBtnText}>Remove</Text>
                         </TouchableOpacity>
                       </PermissionGate>
-                    </View>
-                  )}
+                    )}
+                  </View>
                 </PermissionGate>
               </StitchCard>
             ))
