@@ -23,8 +23,7 @@ export async function webRoutes(app: FastifyInstance) {
     .tab{padding:10px 20px;border-radius:8px 8px 0 0;background:#fff;border:1px solid #e2e8f0;border-bottom:none;cursor:pointer;font-size:14px;font-weight:500;color:#64748b}
     .tab.active{background:#fff;color:#0f766e;border-bottom:2px solid #fff;font-weight:700}
     .admin-only{display:none}
-    body.is-admin .admin-only{display:flex}
-    body.is-admin .panel.admin-only{display:none}
+    body.is-admin .admin-only.tab{display:block}
     body.is-admin .panel.admin-only.active{display:block}
     /* CONTENT */
     .content{max-width:1100px;margin:0 auto;padding:0 24px 40px}
@@ -647,8 +646,7 @@ let currentUser = {};
 try {
   const payload = JSON.parse(atob(token.split('.')[1]));
   currentUser = payload;
-  document.getElementById('userBadge').textContent = payload.role === 'admin' ? t('admin') : t('member_role');
-  // Show admin-only tabs/panels only for admin users
+  // Show admin-only tabs/panels only for admin users (must run before t() which needs _translations)
   if (payload.role === 'admin') {
     document.body.classList.add('is-admin');
   }
@@ -980,6 +978,9 @@ document.documentElement.lang = _lang;
 document.documentElement.dir = _lang === 'he' ? 'rtl' : 'ltr';
 document.getElementById('langSelect').value = _lang;
 document.getElementById('langSelect').onchange = function() { setLang(this.value); };
+
+// Set user badge now that t() is available
+document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
 
 document.getElementById('logoutBtn').onclick = () => {
   localStorage.removeItem('familycart_token');
