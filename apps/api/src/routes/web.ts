@@ -988,9 +988,14 @@ document.getElementById('langSelect').onchange = function() { setLang(this.value
 
 // Set user badge and welcome banner now that t() is available
 document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
-if (currentUser.fullName) {
-  document.getElementById('welcomeBanner').textContent = t('welcome') + ' ' + currentUser.fullName;
-}
+
+// Fetch full name from profile API (token may not contain it)
+api('GET', '/auth/profile').then(function(data) {
+  if (data && data.fullName) {
+    currentUser.fullName = data.fullName;
+    document.getElementById('welcomeBanner').textContent = t('welcome') + ' ' + data.fullName;
+  }
+}).catch(function() {});
 
 document.getElementById('logoutBtn').onclick = () => {
   localStorage.removeItem('familycart_token');
