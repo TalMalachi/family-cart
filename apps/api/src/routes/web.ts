@@ -161,8 +161,8 @@ export async function webRoutes(app: FastifyInstance) {
 
 <nav>
   <h1>&#127868; FamilyCart</h1>
+  <span id="welcomeBanner" style="font-size:15px;color:#fff;font-weight:600"></span>
   <div style="display:flex;align-items:center;gap:16px">
-    <span id="welcomeBanner" style="font-size:14px;color:#fff;font-weight:500"></span>
     <select id="langSelect"><option value="en">EN</option><option value="he">עב</option></select>
     <span id="userBadge"></span>
     <button id="logoutBtn" data-t="logout">Logout</button>
