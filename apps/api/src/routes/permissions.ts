@@ -69,7 +69,7 @@ export async function permissionsRoutes(app: FastifyInstance) {
     // (only a higher-level guard would handle super-admin, out of scope here)
 
     // Upsert all overrides in a transaction
-    await db.begin(async sql => {
+    await db.begin(async (sql: any) => {
       // Remove overrides not in the new list
       const incomingKeys = body.overrides.map(o => o.permissionKey)
 

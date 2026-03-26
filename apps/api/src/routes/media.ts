@@ -80,7 +80,7 @@ export async function mediaRoutes(app: FastifyInstance) {
     if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
 
     // Clear existing primary, set new one
-    await db.begin(async sql => {
+    await db.begin(async (sql: any) => {
       await sql`
         update product_images set is_primary = false where item_id = ${img.itemId}
       `
