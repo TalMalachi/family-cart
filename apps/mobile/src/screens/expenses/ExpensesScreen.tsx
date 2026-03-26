@@ -7,7 +7,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api }             from '../../services/api'
 import { PermissionGate }  from '../../components/common/PermissionGate'
 import type { Expense, ExpenseSummary, ExpenseCategory } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import StitchCard from '../../components/common/StitchCard'
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   groceries:  Colors.teal,
@@ -26,7 +27,7 @@ function SummaryCard({ summary }: { summary: ExpenseSummary }) {
   const total = summary.total || 1
 
   return (
-    <View style={styles.summaryCard}>
+    <StitchCard style={styles.summaryCard} contentStyle={styles.summaryCardContent}>
       <Text style={styles.summaryMonth}>
         {new Date(summary.month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
       </Text>
@@ -53,13 +54,13 @@ function SummaryCard({ summary }: { summary: ExpenseSummary }) {
           </View>
         ))}
       </View>
-    </View>
+    </StitchCard>
   )
 }
 
 function ExpenseRow({ expense, onDelete }: { expense: Expense; onDelete: () => void }) {
   return (
-    <View style={styles.expRow}>
+    <StitchCard style={styles.expRow} contentStyle={styles.expRowContent}>
       <View style={[styles.expIcon, { backgroundColor: (CATEGORY_COLORS[expense.category] + '22') }]}>
         <Text style={{ fontSize: 16 }}>{CATEGORY_ICONS[expense.category]}</Text>
       </View>
@@ -78,7 +79,7 @@ function ExpenseRow({ expense, onDelete }: { expense: Expense; onDelete: () => v
           </TouchableOpacity>
         </PermissionGate>
       </View>
-    </View>
+    </StitchCard>
   )
 }
 
@@ -216,7 +217,8 @@ const styles = StyleSheet.create({
   addBtn:       { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 6 },
   addBtnText:   { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
   content:      { padding: Space.lg, paddingBottom: 80 },
-  summaryCard:  { backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Space.lg, marginBottom: Space.lg, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  summaryCard:  { marginBottom: Space.lg },
+  summaryCardContent: { padding: Space.lg },
   summaryMonth: { fontSize: FontSize.sm, color: Colors.textSecondary },
   summaryTotal: { fontSize: 34, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginVertical: Space.xs, letterSpacing: -1 },
   catBar:       { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', gap: 2, marginBottom: Space.sm },
@@ -226,7 +228,8 @@ const styles = StyleSheet.create({
   legendDot:    { width: 8, height: 8, borderRadius: 4 },
   legendText:   { fontSize: FontSize.xs, color: Colors.textSecondary },
   sectionLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Space.sm },
-  expRow:       { flexDirection: 'row', alignItems: 'center', gap: Space.sm, backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.md, marginBottom: 6, borderWidth: 0.5, borderColor: Colors.border },
+  expRow:       { marginBottom: 6 },
+  expRowContent: { flexDirection: 'row', alignItems: 'center', gap: Space.sm, padding: Space.md },
   expIcon:      { width: 36, height: 36, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
   expInfo:      { flex: 1 },
   expTitle:     { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.textPrimary },

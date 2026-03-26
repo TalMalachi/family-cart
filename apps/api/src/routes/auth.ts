@@ -9,6 +9,7 @@ import {
 import { db }    from '../db/postgres'
 import { redis } from '../db/redis'
 import { sms }   from '../services/sms'
+import { env }   from '../../config/env'
 import { requirePermission } from '../middleware/permissions'
 
 export async function authRoutes(app: FastifyInstance) {
@@ -141,8 +142,112 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.type('text/html; charset=utf-8').send(html)
   })
 
+  // GET /auth/accept-invite  (browser page for invited members to set password)
+  app.get('/accept-invite', async (_request, reply) => {
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FamilyCart — Accept Invite</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fb; margin: 0; }
+    .card { max-width: 420px; margin: 64px auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .subtitle { color: #64748b; font-size: 14px; margin: 0 0 20px; }
+    label { display: block; margin: 12px 0 6px; font-size: 14px; color: #334155; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+    button { width: 100%; margin-top: 16px; padding: 11px 12px; border: 0; border-radius: 8px; background: #0f766e; color: #fff; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.7; cursor: not-allowed; }
+    .ok, .err { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 13px; }
+    .ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .req { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Welcome to FamilyCart</h1>
+    <p class="subtitle">Set your password to complete your account setup.</p>
+    <form id="form">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" placeholder="Min 8 characters" required minlength="8" />
+      <p class="req">At least 8 characters, 1 uppercase, 1 number or symbol</p>
+
+      <label for="confirmPassword">Confirm password</label>
+      <input id="confirmPassword" name="confirmPassword" type="password" placeholder="Re-enter password" required />
+
+      <button id="submitBtn" type="submit">Set Password</button>
+      <div id="message"></div>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const message = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (!token) {
+      message.className = 'err';
+      message.textContent = 'Invalid invite link — no token found.';
+      submitBtn.disabled = true;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = document.getElementById('password').value;
+      const cpw = document.getElementById('confirmPassword').value;
+
+      if (pw !== cpw) {
+        message.className = 'err';
+        message.textContent = 'Passwords do not match.';
+        return;
+      }
+
+      message.className = '';
+      message.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Setting password...';
+
+      try {
+        const res = await fetch('/auth/set-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password: pw, confirmPassword: cpw }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          message.className = 'err';
+          message.textContent = data.error || 'Something went wrong.';
+          return;
+        }
+
+        message.className = 'ok';
+        message.innerHTML = 'Password set! You can now log in.<br><br>'
+          + '1. Install <b>Expo Go</b> on your phone<br>'
+          + '2. Open the FamilyCart app<br>'
+          + '3. Log in with your email and new password';
+        form.style.display = 'none';
+      } catch (err) {
+        message.className = 'err';
+        message.textContent = 'Network error. Please try again.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Set Password';
+      }
+    });
+  </script>
+</body>
+</html>`
+
+    return reply.type('text/html; charset=utf-8').send(html)
+  })
+
   // POST /auth/login
-  app.post('/login', async (request, reply) => {
+  app.post('/login', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = LoginSchema.parse(request.body)
 
     const [user] = await db`
@@ -218,9 +323,10 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.status(201).send({ token })
   })
 
-  // POST /auth/invite  — admin sends SMS to new member
+  // POST /auth/invite  — admin invites new member
   app.post('/invite', {
     preHandler: requirePermission('mem.invite'),
+    config: { rateLimit: { max: 10, timeWindow: '15 minutes' } },
   }, async (request, reply) => {
     const parsed = InviteMemberSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -257,23 +363,42 @@ export async function authRoutes(app: FastifyInstance) {
       do update set role = excluded.role, status = 'active'
     `
 
-    // Generate 6-digit OTP
+    // Generate OTP and store invitation
     const otp  = String(Math.floor(100000 + Math.random() * 900000))
-    const hash = await bcrypt.hash(otp, 10)
+    const otpHash = await bcrypt.hash(otp, 10)
 
-    await db`
+    const [invitation] = await db`
       insert into invitations
         (family_id, phone, email, full_name, role, otp_hash, invited_by, expires_at)
       values (
         ${familyId}, ${body.phone}, ${body.email}, ${body.fullName}, ${body.role},
-        ${hash}, ${invitedBy},
-        now() + interval '15 minutes'
+        ${otpHash}, ${invitedBy},
+        now() + interval '7 days'
       )
+      returning id
     `
 
-    await sms.send(body.phone, `Your FamilyCart invite code: ${otp}. Expires in 15 min.`)
+    // Generate invite token (same shape as verify-sms tempToken, so set-password works as-is)
+    const inviteToken = app.jwt.sign(
+      {
+        inviteId:           invitation.id,
+        phone:              body.phone,
+        familyId,
+        role:               body.role,
+        mustChangePassword: true,
+      },
+      { expiresIn: '7d' }
+    )
 
-    return reply.status(201).send({ message: 'Invitation sent' })
+    const baseUrl = env.APP_URL || `http://${request.hostname}`
+    const inviteUrl = `${baseUrl}/auth/accept-invite?token=${encodeURIComponent(inviteToken)}`
+
+    // Send SMS if Twilio is configured, otherwise admin shares the link manually
+    if (env.TWILIO_SID && env.TWILIO_TOKEN) {
+      await sms.send(body.phone, `You're invited to FamilyCart! Set your password: ${inviteUrl}`)
+    }
+
+    return reply.status(201).send({ message: 'Invitation created', inviteToken, inviteUrl })
   })
 
   // POST /auth/verify-sms  — member enters 6-digit code

@@ -64,29 +64,35 @@ async function findNearbyStores(
   radiusKm: number = 10,
 ): Promise<OsmStore[]> {
   const radiusMeters = radiusKm * 1000
-  // Overpass QL: find supermarkets + convenience stores nearby
+  // Overpass QL: find supermarkets, grocery stores, and similar shops nearby
+  const shopTypes = 'supermarket|convenience|grocery|wholesale|greengrocer|deli|general'
   const query = `
-    [out:json][timeout:15];
+    [out:json][timeout:25];
     (
-      node["shop"="supermarket"](around:${radiusMeters},${lat},${lng});
-      way["shop"="supermarket"](around:${radiusMeters},${lat},${lng});
-      node["shop"="convenience"](around:${radiusMeters},${lat},${lng});
+      node["shop"~"^(${shopTypes})$"](around:${radiusMeters},${lat},${lng});
+      way["shop"~"^(${shopTypes})$"](around:${radiusMeters},${lat},${lng});
+      relation["shop"~"^(${shopTypes})$"](around:${radiusMeters},${lat},${lng});
     );
     out center body;
   `
 
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-    signal: AbortSignal.timeout(20000),
-  })
+  let data: any
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: AbortSignal.timeout(30000),
+    })
+    if (res.ok) { data = await res.json(); break }
+    if (res.status !== 429 && res.status !== 504) throw new Error(`Overpass API error: ${res.status}`)
+    console.warn(`[storeSearch] Overpass returned ${res.status}, retry ${attempt + 1}/3`)
+  }
+  if (!data) throw new Error('Overpass API unavailable after 3 retries')
 
-  if (!res.ok) throw new Error(`Overpass API error: ${res.status}`)
-  const data = (await res.json()) as any
-
-  const stores: OsmStore[] = []
-  const seen = new Set<string>()
+  const raw: OsmStore[] = []
+  const seenOsmIds = new Set<string>()
 
   for (const el of data.elements || []) {
     const tags = el.tags || {}
@@ -97,10 +103,10 @@ async function findNearbyStores(
     const storeLng = el.lon || el.center?.lon
     if (!storeLat || !storeLng) continue
 
-    // Deduplicate by name + rough location
-    const key = `${name.toLowerCase()}_${storeLat.toFixed(3)}_${storeLng.toFixed(3)}`
-    if (seen.has(key)) continue
-    seen.add(key)
+    // Skip duplicate OSM elements (same node/way/relation id)
+    const osmId = `${el.type}_${el.id}`
+    if (seenOsmIds.has(osmId)) continue
+    seenOsmIds.add(osmId)
 
     const distance = haversineKm(lat, lng, storeLat, storeLng)
     if (distance > radiusKm) continue
@@ -111,7 +117,7 @@ async function findNearbyStores(
       tags['addr:city'],
     ].filter(Boolean).join(' ')
 
-    stores.push({
+    raw.push({
       name,
       brand: tags.brand || tags.operator || name,
       lat: storeLat,
@@ -121,9 +127,27 @@ async function findNearbyStores(
     })
   }
 
-  // Sort by distance
-  stores.sort((a, b) => a.distance - b.distance)
-  return stores
+  // Proximity dedup: same name within 200m (node + way of same store)
+  raw.sort((a, b) => a.distance - b.distance)
+  const stores: OsmStore[] = []
+  for (const s of raw) {
+    const isDup = stores.some(existing =>
+      existing.name.toLowerCase() === s.name.toLowerCase() &&
+      haversineKm(existing.lat, existing.lng, s.lat, s.lng) < 0.2
+    )
+    if (!isDup) stores.push(s)
+  }
+
+  // Chain dedup: keep only the closest branch per store name
+  const seenNames = new Set<string>()
+  const unique: OsmStore[] = []
+  for (const s of stores) {
+    const nameKey = s.name.toLowerCase()
+    if (seenNames.has(nameKey)) continue
+    seenNames.add(nameKey)
+    unique.push(s)
+  }
+  return unique
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -174,7 +198,7 @@ Respond with ONLY the JSON:`
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
-      max_tokens: 2000,
+      max_tokens: 4000,
     })
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? ''
@@ -232,7 +256,7 @@ export async function searchNearbyStores(
   lng: number,
   items: { name: string; quantity: number; unit?: string }[],
   radiusKm: number = 10,
-  topN: number = 3,
+  topN: number = 10,
 ): Promise<StoreSearchResult> {
   console.info(`[storeSearch] Searching within ${radiusKm}km of (${lat}, ${lng}) for ${items.length} items`)
 

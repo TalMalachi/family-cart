@@ -8,7 +8,8 @@ import { useQuery }         from '@tanstack/react-query'
 import { api }              from '../../services/api'
 import { PermissionGate }   from '../../components/common/PermissionGate'
 import type { ShoppingList } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import StitchCard from '../../components/common/StitchCard'
+import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
 
 function ListCard({ list, onPress }: { list: ShoppingList; onPress: () => void }) {
   const total      = list.items?.length ?? 0
@@ -17,26 +18,28 @@ function ListCard({ list, onPress }: { list: ShoppingList; onPress: () => void }
   const isComplete = list.status === 'completed'
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.statusDot, { backgroundColor: isComplete ? Colors.teal : Colors.warning }]} />
-        <Text style={styles.listName} numberOfLines={1}>{list.name}</Text>
-        <Text style={styles.itemCount}>{total} items</Text>
-      </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <StitchCard style={styles.card} contentStyle={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.statusDot, { backgroundColor: isComplete ? Colors.teal : Colors.warning }]} />
+          <Text style={styles.listName} numberOfLines={1}>{list.name}</Text>
+          <Text style={styles.itemCount}>{total} items</Text>
+        </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressBg}>
-        <View style={[styles.progressFill, { width: `${pct * 100}%` as any }]} />
-      </View>
+        {/* Progress bar */}
+        <View style={styles.progressBg}>
+          <View style={[styles.progressFill, { width: `${pct * 100}%` as any }]} />
+        </View>
 
-      <View style={styles.cardFooter}>
-        <Text style={styles.footerText}>
-          {purchased}/{total} purchased
-        </Text>
-        <Text style={styles.footerDate}>
-          {new Date(list.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-        </Text>
-      </View>
+        <View style={styles.cardFooter}>
+          <Text style={styles.footerText}>
+            {purchased}/{total} purchased
+          </Text>
+          <Text style={styles.footerDate}>
+            {new Date(list.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+          </Text>
+        </View>
+      </StitchCard>
     </TouchableOpacity>
   )
 }
@@ -125,7 +128,8 @@ const styles = StyleSheet.create({
   addBtnText:    { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
   listContent:   { padding: Space.lg, paddingBottom: 80 },
   sectionLabel:  { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: Space.lg, marginBottom: Space.sm },
-  card:          { backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.lg, marginBottom: Space.sm, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  card:          { marginBottom: Space.sm },
+  cardContent:   { padding: Space.lg },
   cardHeader:    { flexDirection: 'row', alignItems: 'center', gap: Space.sm, marginBottom: Space.sm },
   statusDot:     { width: 8, height: 8, borderRadius: 4 },
   listName:      { flex: 1, fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },

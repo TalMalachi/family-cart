@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, RefreshControl, ActivityIndicator, Alert,
+  TextInput, Modal, RefreshControl, ActivityIndicator, Alert, Linking, Share,
 } from 'react-native'
 import { useRouter }        from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,8 @@ import { api }              from '../../services/api'
 import { PermissionGate }   from '../../components/common/PermissionGate'
 import { useAuth }          from '../../store/auth'
 import type { FamilyMember } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import StitchCard from '../../components/common/StitchCard'
 import {
   isWhatsAppInstalled,
   openWhatsAppForGroupCreation,
@@ -35,6 +36,7 @@ export default function MembersScreen() {
   const [showInvite, setShowInvite] = useState(false)
   const [invite, setInvite] = useState({ name: '', phone: '', email: '', role: 'member' as 'admin' | 'member' })
   const [inviteSent, setInviteSent] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState('')
 
   // ─── WhatsApp group state ────────────────────────────────────
   const [showWaLinkModal, setShowWaLinkModal] = useState(false)
@@ -125,7 +127,11 @@ export default function MembersScreen() {
       email: invite.email,
       role: invite.role,
     }),
-    onSuccess: () => { setInviteSent(true); qc.invalidateQueries({ queryKey: ['members'] }) },
+    onSuccess: (res) => {
+      setInviteUrl(res.data.inviteUrl ?? '')
+      setInviteSent(true)
+      qc.invalidateQueries({ queryKey: ['members'] })
+    },
   })
 
   const removeMutation = useMutation({
@@ -162,7 +168,7 @@ export default function MembersScreen() {
         {isLoading
           ? <ActivityIndicator color={Colors.teal} style={{ marginTop: Space.xl }} />
           : members?.map((m, i) => (
-              <View key={m.id} style={styles.memberCard}>
+              <StitchCard key={m.id} style={styles.memberCard} contentStyle={styles.memberCardContent}>
                 <Avatar name={m.user.fullName} color={AVATAR_COLORS[i % AVATAR_COLORS.length]} />
                 <View style={styles.memberInfo}>
                   <View style={styles.memberNameRow}>
@@ -200,13 +206,13 @@ export default function MembersScreen() {
                     </View>
                   )}
                 </PermissionGate>
-              </View>
+              </StitchCard>
             ))
         }
 
         {/* ─── WhatsApp Group Section ─────────────────────────── */}
         {hasWhatsApp && !isLoading && (
-          <View style={styles.waSection}>
+          <StitchCard style={styles.waSection} contentStyle={styles.waSectionContent}>
             <Text style={styles.waSectionTitle}>📱 WhatsApp Group</Text>
 
             {waGroupLink ? (
@@ -249,7 +255,7 @@ export default function MembersScreen() {
                 </PermissionGate>
               </>
             )}
-          </View>
+          </StitchCard>
         )}
       </ScrollView>
 
@@ -304,13 +310,25 @@ export default function MembersScreen() {
 
             {inviteSent ? (
               <View style={{ alignItems: 'center', paddingVertical: Space.lg }}>
-                <View style={styles.sentCircle}><Text style={{ fontSize: 28 }}>📱</Text></View>
-                <Text style={styles.sentTitle}>SMS sent!</Text>
+                <View style={styles.sentCircle}><Text style={{ fontSize: 28 }}>🔗</Text></View>
+                <Text style={styles.sentTitle}>Invite created!</Text>
                 <Text style={styles.sentBody}>
-                  {invite.name} will receive a 6-digit code at {invite.phone} ({invite.email})
+                  Share this link with {invite.name} so they can set their password and join the family.
                 </Text>
-                <TouchableOpacity style={styles.saveBtn} onPress={() => setShowInvite(false)}>
-                  <Text style={styles.saveBtnText}>Done</Text>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#25D366', marginBottom: Space.sm }]}
+                  onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(`You're invited to FamilyCart! Set your password here: ${inviteUrl}`)}`)}
+                >
+                  <Text style={styles.saveBtnText}>Share via WhatsApp</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: Colors.blue, marginBottom: Space.sm }]}
+                  onPress={() => Share.share({ message: `You're invited to FamilyCart! Set your password here: ${inviteUrl}` })}
+                >
+                  <Text style={styles.saveBtnText}>Share link</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowInvite(false)}>
+                  <Text style={styles.cancelBtnText}>Done</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -318,7 +336,7 @@ export default function MembersScreen() {
                 <Text style={styles.sheetTitle}>Invite member</Text>
                 <View style={styles.infoBox}>
                   <Text style={styles.infoText}>
-                    They'll receive an SMS with a 6-digit code and must set a password on first login.
+                    You'll get a link to share with them. They'll use it to set their password and join.
                   </Text>
                 </View>
 
@@ -368,7 +386,7 @@ export default function MembersScreen() {
                   >
                     {inviteMutation.isPending
                       ? <ActivityIndicator color={Colors.white} />
-                      : <Text style={styles.saveBtnText}>Send SMS invite</Text>
+                      : <Text style={styles.saveBtnText}>Create invite</Text>
                     }
                   </TouchableOpacity>
                 </View>
@@ -388,7 +406,8 @@ const styles = StyleSheet.create({
   addBtn:            { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 6 },
   addBtnText:        { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
   content:           { padding: Space.lg, paddingBottom: 80 },
-  memberCard:        { backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.md, marginBottom: Space.sm, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  memberCard:        { marginBottom: Space.sm },
+  memberCardContent: { padding: Space.md },
   avatar:            { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', position: 'absolute', top: Space.md, left: Space.md },
   avatarText:        { fontSize: FontSize.sm, fontWeight: FontWeight.semi },
   memberInfo:        { marginLeft: 52, flex: 1, paddingRight: Space.lg },
@@ -435,7 +454,8 @@ const styles = StyleSheet.create({
   sentBody:          { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Space.xl },
 
   // ─── WhatsApp group styles ──────────────────────────────────
-  waSection:         { marginTop: Space.lg, backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.lg, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
+  waSection:         { marginTop: Space.lg },
+  waSectionContent:  { padding: Space.lg },
   waSectionTitle:    { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary, marginBottom: Space.sm },
   waDescription:     { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Space.md },
   waCreateBtn:       { backgroundColor: '#25D366', borderRadius: Radius.sm, paddingVertical: 13, alignItems: 'center' },

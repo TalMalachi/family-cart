@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api }               from '../../services/api'
 import { PermissionGate }    from '../../components/common/PermissionGate'
 import { shareListToWhatsApp } from '../../utils/whatsapp'
+import StitchCard from '../../components/common/StitchCard'
 import type { ShoppingList, ShoppingItem } from '@familycart/shared'
 import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
 
@@ -27,7 +28,7 @@ function ItemRow({
   const hasAlt     = item.alternatives?.length > 0
 
   return (
-    <View style={styles.itemRow}>
+    <StitchCard style={styles.itemRow} contentStyle={styles.itemRowContent}>
       {/* Check circle */}
       <PermissionGate require="lists.write">
         <TouchableOpacity style={[styles.circle, item.isPurchased && styles.circleDone]} onPress={onToggle}>
@@ -66,7 +67,7 @@ function ItemRow({
             </View>
         }
       </TouchableOpacity>
-    </View>
+    </StitchCard>
   )
 }
 
@@ -276,7 +277,8 @@ const styles = StyleSheet.create({
   progFill:        { height: '100%', backgroundColor: Colors.white },
   content:         { padding: Space.lg, paddingBottom: 80 },
   sectionLabel:    { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: Space.md, marginBottom: Space.xs },
-  itemRow:         { flexDirection: 'row', alignItems: 'center', gap: Space.sm, backgroundColor: Colors.bgCard, borderRadius: Radius.md, padding: Space.md, marginBottom: 6, borderWidth: 0.5, borderColor: Colors.border },
+  itemRow:         { marginBottom: 6 },
+  itemRowContent:  { flexDirection: 'row', alignItems: 'center', gap: Space.sm, padding: Space.md },
   circle:          { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: Colors.borderMid, alignItems: 'center', justifyContent: 'center' },
   circleDone:      { backgroundColor: Colors.teal, borderColor: Colors.teal },
   checkMark:       { color: Colors.white, fontSize: 13, fontWeight: FontWeight.semi },

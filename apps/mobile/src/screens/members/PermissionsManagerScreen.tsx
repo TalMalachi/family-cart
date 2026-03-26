@@ -8,7 +8,8 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { api }               from '../../services/api'
 import { PERMISSION_GROUPS, ALL_PERMISSIONS } from '@familycart/shared/permissions'
 import type { PermissionKey } from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
+import StitchCard from '../../components/common/StitchCard'
 
 interface MemberPerms {
   memberId: string
@@ -146,7 +147,7 @@ export default function PermissionsManagerScreen() {
         {PERMISSION_GROUPS.map(group => (
           <View key={group.api} style={styles.group}>
             <Text style={styles.groupTitle}>{group.label}</Text>
-            <View style={styles.groupCard}>
+            <StitchCard>
               {group.keys.map((key, i) => {
                 const info = ALL_PERMISSIONS[key]
                 const effective = getEffective(key)
@@ -174,7 +175,7 @@ export default function PermissionsManagerScreen() {
                   </View>
                 )
               })}
-            </View>
+            </StitchCard>
           </View>
         ))}
 
@@ -219,7 +220,6 @@ const styles = StyleSheet.create({
   infoText:      { fontSize: FontSize.sm, color: Colors.blue, lineHeight: 20 },
   group:         { marginBottom: Space.lg },
   groupTitle:    { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Space.sm },
-  groupCard:     { backgroundColor: Colors.bgCard, borderRadius: Radius.md, borderWidth: 0.5, borderColor: Colors.border, overflow: 'hidden', ...Shadow.card },
   permRow:       { flexDirection: 'row', alignItems: 'center', padding: Space.md, gap: Space.sm },
   permRowBorder: { borderBottomWidth: 0.5, borderBottomColor: Colors.border },
   permInfo:      { flex: 1 },

@@ -64,6 +64,14 @@ export const Space = {
   xxl: 32,
 }
 
+export const Stitch = {
+  borderWidth:  1.5,
+  borderColor:  '#1D9E75',
+  insetPadding: 4,
+  outerBg:      '#E1F5EE',
+  borderRadius: 12,
+}
+
 export const Shadow = {
   card: {
     shadowColor:   '#000',

@@ -11,8 +11,9 @@ import { useImageUpload }      from '../../hooks/useImageUpload'
 import { ImageGallery }        from '../../components/common/ImageGallery'
 import { AlternativesManager } from '../../components/lists/AlternativesManager'
 import { PermissionGate }      from '../../components/common/PermissionGate'
+import StitchCard              from '../../components/common/StitchCard'
 import type { ShoppingItem }   from '@familycart/shared'
-import { Colors, FontSize, FontWeight, Radius, Space, Shadow } from '../../utils/theme'
+import { Colors, FontSize, FontWeight, Radius, Space } from '../../utils/theme'
 
 const CATEGORIES = [
   { key: 'Produce',       icon: '🥬', he: 'ירקות ופירות' },
@@ -33,7 +34,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
+      <StitchCard style={{ marginHorizontal: Space.lg }} contentStyle={{ overflow: 'hidden' }}>{children}</StitchCard>
     </View>
   )
 }
@@ -216,7 +217,7 @@ export default function ProductDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
         {/* Purchased toggle */}
-        <View style={styles.purchasedRow}>
+        <StitchCard style={{ marginHorizontal: Space.lg, marginTop: Space.lg }} contentStyle={{ flexDirection: 'row', alignItems: 'center', padding: Space.lg }}>
           <View style={styles.purchasedInfo}>
             <Text style={styles.purchasedLabel}>Purchased</Text>
             {item.isPurchased && item.purchasedAt && (
@@ -241,7 +242,7 @@ export default function ProductDetailScreen() {
               ios_backgroundColor={Colors.bgSecondary}
             />
           </PermissionGate>
-        </View>
+        </StitchCard>
 
         {/* Product details */}
         <Section title="Product details">
@@ -365,7 +366,6 @@ const styles = StyleSheet.create({
   saveNavBtn:              { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.full, paddingHorizontal: Space.md, paddingVertical: 5 },
   saveNavBtnText:          { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.medium },
   content:                 { paddingBottom: 80 },
-  purchasedRow:            { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bgCard, marginHorizontal: Space.lg, marginTop: Space.lg, borderRadius: Radius.md, padding: Space.lg, borderWidth: 0.5, borderColor: Colors.border, ...Shadow.card },
   purchasedInfo:           { flex: 1 },
   purchasedLabel:          { fontSize: FontSize.md, fontWeight: FontWeight.medium, color: Colors.textPrimary },
   purchasedMeta:           { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
@@ -374,7 +374,6 @@ const styles = StyleSheet.create({
   purchasedIndicatorText:  { fontSize: FontSize.sm, color: Colors.textSecondary },
   section:                 { marginTop: Space.xl },
   sectionTitle:            { fontSize: FontSize.xs, fontWeight: FontWeight.medium, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginHorizontal: Space.lg, marginBottom: Space.sm },
-  sectionCard:             { backgroundColor: Colors.bgCard, marginHorizontal: Space.lg, borderRadius: Radius.md, borderWidth: 0.5, borderColor: Colors.border, overflow: 'hidden', ...Shadow.card },
   fieldRow:                { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Space.lg, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
   fieldLabel:              { width: 110, fontSize: FontSize.sm, color: Colors.textSecondary },
   fieldInput:              { flex: 1, fontSize: FontSize.md, color: Colors.textPrimary, paddingVertical: 2 },

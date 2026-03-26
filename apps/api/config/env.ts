@@ -17,10 +17,10 @@ const EnvSchema = z.object({
   // Used for QR login codes so phones on the same Wi-Fi can reach the API.
   HOST_LAN_IP:   z.string().default(''),
 
-  // Twilio
-  TWILIO_SID:    z.string(),
-  TWILIO_TOKEN:  z.string(),
-  TWILIO_FROM:   z.string(),
+  // Twilio (optional — leave blank to disable SMS)
+  TWILIO_SID:    z.string().default(''),
+  TWILIO_TOKEN:  z.string().default(''),
+  TWILIO_FROM:   z.string().default(''),
 
   // S3 / Cloudflare R2
   S3_ENDPOINT:   z.string().url().or(z.literal('')),
@@ -31,6 +31,9 @@ const EnvSchema = z.object({
 
   // OpenAI (leave blank to disable AI image search)
   OPENAI_API_KEY: z.string().default(''),
+
+  // Sentry (leave blank to disable error tracking)
+  SENTRY_DSN: z.string().url().or(z.literal('')).default(''),
 })
 
 export const env = EnvSchema.parse(process.env)

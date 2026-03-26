@@ -339,7 +339,6 @@ export async function listsRoutes(app: FastifyInstance) {
         lat, lng,
         items.map((i: any) => ({ name: i.name, quantity: i.quantity, unit: i.unit })),
         radiusKm || 10,
-        3,
       )
       return result
     } catch (err: any) {
