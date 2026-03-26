@@ -15,7 +15,7 @@
     "@aws-sdk/s3-request-presigner": "^3.575.0",
     "@familycart/shared": "*",
     "@fastify/cors": "^9.0.0",
-    "@fastify/helmet": "^13.0.2",
+    "@fastify/helmet": "^11.1.1",
     "@fastify/jwt": "^8.0.0",
     "@fastify/multipart": "^8.3.0",
     "@fastify/rate-limit": "^10.3.0",
