@@ -251,7 +251,7 @@ export async function authRoutes(app: FastifyInstance) {
     const body = LoginSchema.parse(request.body)
 
     const [user] = await db`
-      select id, password_hash, must_change_password
+      select id, full_name, password_hash, must_change_password
       from users
       where phone = ${body.phoneOrEmail}
          or email = ${body.phoneOrEmail}
@@ -277,6 +277,7 @@ export async function authRoutes(app: FastifyInstance) {
       {
         id:       user.id,
         familyId: membership.familyId,
+        fullName: user.fullName,
         role:     membership.role,
         mustChangePassword: user.mustChangePassword,
       },
@@ -317,7 +318,7 @@ export async function authRoutes(app: FastifyInstance) {
     `
 
     const token = app.jwt.sign(
-      { id: user.id, familyId, role: 'admin', mustChangePassword: false },
+      { id: user.id, familyId, fullName: body.fullName, role: 'admin', mustChangePassword: false },
       { expiresIn: '7d' }
     )
     return reply.status(201).send({ token })
@@ -664,7 +665,7 @@ export async function authRoutes(app: FastifyInstance) {
         phone = excluded.phone,
         password_hash = excluded.password_hash,
         must_change_password = false
-      returning id
+      returning id, full_name
     `
 
     // Activate membership (upsert in case invite already created it)
@@ -681,7 +682,7 @@ export async function authRoutes(app: FastifyInstance) {
     `
 
     const token = app.jwt.sign(
-      { id: user.id, familyId: claim.familyId, role: claim.role, mustChangePassword: false },
+      { id: user.id, familyId: claim.familyId, fullName: user.fullName, role: claim.role, mustChangePassword: false },
       { expiresIn: '7d' }
     )
     return { token }
