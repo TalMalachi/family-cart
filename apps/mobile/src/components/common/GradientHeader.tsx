@@ -16,7 +16,7 @@ export default function GradientHeader({
   children,
   style,
 }: GradientHeaderProps) {
-  const colors = (gradient ?? Gradients.teal) as [string, string, ...string[]];
+  const colors = (gradient ?? Gradients.vivid) as [string, string, ...string[]];
 
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.header, style]}>
