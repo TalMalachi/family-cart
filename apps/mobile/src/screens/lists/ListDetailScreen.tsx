@@ -188,7 +188,7 @@ export default function ListDetailScreen() {
             <ItemRow
               item={item.data}
               onToggle={() => toggleMutation.mutate({ itemId: item.data.id, current: item.data.isPurchased })}
-              onPress={() => router.push(`/(tabs)/lists/item/${item.data.id}`)}
+              onPress={() => router.push({ pathname: `/(tabs)/lists/item/${item.data.id}`, params: { listId: id } })}
             />
           )
         }}
