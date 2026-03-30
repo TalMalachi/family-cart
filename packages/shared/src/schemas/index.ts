@@ -31,6 +31,7 @@ export const ListQuerySchema = z.object({
 export const LoginSchema = z.object({
   phoneOrEmail: z.string().min(4),
   password: z.string().min(8),
+  familySlug: z.string().min(1).max(80).optional(),
 })
 
 export const RegisterSchema = z.object({

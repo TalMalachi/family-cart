@@ -5,17 +5,27 @@ import { requirePermission }   from '../middleware/permissions'
 
 export async function expensesRoutes(app: FastifyInstance) {
 
+  function getEffectiveFamilyId(request: any): string | null {
+    const { familyId, isSuperAdmin } = request.user as any
+    if (isSuperAdmin) {
+      const qFamilyId = (request.query as any)?.familyId
+      return qFamilyId || null
+    }
+    return familyId
+  }
+
   // GET /expenses?month=2026-03
   app.get('/', { preHandler: requirePermission('exp.read') }, async (request) => {
-    const { familyId } = request.user as any
+    const effectiveFamilyId = getEffectiveFamilyId(request)
     const { month } = request.query as { month?: string }
+    const familyFilter = effectiveFamilyId ? `and e.family_id = '${effectiveFamilyId}'` : ''
 
     if (month) {
       return db`
         select e.*, u.full_name as paid_by_name
         from expenses e
         join users u on u.id = e.paid_by
-        where e.family_id = ${familyId}
+        where true ${db.unsafe(familyFilter)}
           and to_char(e.date, 'YYYY-MM') = ${month}
         order by e.date desc
       `
@@ -25,7 +35,7 @@ export async function expensesRoutes(app: FastifyInstance) {
       select e.*, u.full_name as paid_by_name
       from expenses e
       join users u on u.id = e.paid_by
-      where e.family_id = ${familyId}
+      where true ${db.unsafe(familyFilter)}
       order by e.date desc
       limit 50
     `
@@ -33,9 +43,11 @@ export async function expensesRoutes(app: FastifyInstance) {
 
   // GET /expenses/summary?month=2026-03
   app.get('/summary', { preHandler: requirePermission('exp.read') }, async (request) => {
-    const { familyId } = request.user as any
+    const effectiveFamilyId = getEffectiveFamilyId(request)
     const { month } = request.query as { month?: string }
     const target = month ?? new Date().toISOString().slice(0, 7)
+    const familyFilter = effectiveFamilyId ? `and family_id = '${effectiveFamilyId}'` : ''
+    const familyFilterE = effectiveFamilyId ? `and e.family_id = '${effectiveFamilyId}'` : ''
 
     const [totals] = await db`
       select
@@ -44,7 +56,7 @@ export async function expensesRoutes(app: FastifyInstance) {
       from (
         select category, sum(total_amount) as cat_total
         from expenses
-        where family_id = ${familyId}
+        where true ${db.unsafe(familyFilter)}
           and to_char(date, 'YYYY-MM') = ${target}
         group by category
       ) t
@@ -54,7 +66,7 @@ export async function expensesRoutes(app: FastifyInstance) {
       select u.id, u.full_name, sum(e.total_amount) as paid
       from expenses e
       join users u on u.id = e.paid_by
-      where e.family_id = ${familyId}
+      where true ${db.unsafe(familyFilterE)}
         and to_char(e.date, 'YYYY-MM') = ${target}
       group by u.id, u.full_name
     `
@@ -65,13 +77,14 @@ export async function expensesRoutes(app: FastifyInstance) {
   // POST /expenses
   app.post('/', { preHandler: requirePermission('exp.write') }, async (request, reply) => {
     const body = CreateExpenseSchema.parse(request.body)
-    const { familyId, id: userId } = request.user as any
+    const { familyId, id: userId, isSuperAdmin } = request.user as any
+    const targetFamilyId = (isSuperAdmin && (request.body as any).familyId) || familyId
 
     const [expense] = await db`
       insert into expenses
         (family_id, title, total_amount, category, paid_by, shopping_list_id, date)
       values
-        (${familyId}, ${body.title}, ${body.totalAmount}, ${body.category},
+        (${targetFamilyId}, ${body.title}, ${body.totalAmount}, ${body.category},
          ${userId}, ${body.shoppingListId ?? null}, ${body.date})
       returning *
     `
@@ -81,20 +94,25 @@ export async function expensesRoutes(app: FastifyInstance) {
   // DELETE /expenses/:id
   app.delete('/:id', { preHandler: requirePermission('exp.delete') }, async (request, reply) => {
     const { id } = request.params as any
-    const { familyId } = request.user as any
-    await db`delete from expenses where id = ${id} and family_id = ${familyId}`
+    const { familyId, isSuperAdmin } = request.user as any
+    if (isSuperAdmin) {
+      await db`delete from expenses where id = ${id}`
+    } else {
+      await db`delete from expenses where id = ${id} and family_id = ${familyId}`
+    }
     return reply.status(204).send()
   })
 
   // GET /expenses/export  — CSV download
   app.get('/export', { preHandler: requirePermission('exp.export') }, async (request, reply) => {
-    const { familyId } = request.user as any
+    const effectiveFamilyId = getEffectiveFamilyId(request)
+    const familyFilter = effectiveFamilyId ? `and e.family_id = '${effectiveFamilyId}'` : ''
 
     const rows = await db`
       select e.date, e.title, e.category, e.total_amount, u.full_name as paid_by
       from expenses e
       join users u on u.id = e.paid_by
-      where e.family_id = ${familyId}
+      where true ${db.unsafe(familyFilter)}
       order by e.date desc
     `
 

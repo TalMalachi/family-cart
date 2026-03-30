@@ -60,22 +60,27 @@ export async function ensureDefaultAdmin(): Promise<void> {
   if (!userId) {
     const hash = await bcrypt.hash(DEFAULT_ADMIN.password, 12)
     const [createdUser] = await db<UserRow[]>`
-      insert into users (full_name, phone, email, password_hash, must_change_password)
+      insert into users (full_name, phone, email, password_hash, must_change_password, is_super_admin)
       values (
         ${DEFAULT_ADMIN.fullName},
         ${DEFAULT_ADMIN.phone},
         ${DEFAULT_ADMIN.email},
         ${hash},
-        false
+        false,
+        true
       )
       returning id
     `
     userId = createdUser.id
+  } else {
+    // Ensure existing default admin is super-admin
+    await db`update users set is_super_admin = true where id = ${userId}`
   }
 
+  const familySlug = DEFAULT_ADMIN.familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   const [family] = await db<FamilyRow[]>`
-    insert into families (name, created_by)
-    values (${DEFAULT_ADMIN.familyName}, ${userId})
+    insert into families (name, slug, created_by)
+    values (${DEFAULT_ADMIN.familyName}, ${familySlug}, ${userId})
     returning id
   `
 

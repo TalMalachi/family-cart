@@ -47,6 +47,14 @@ export async function webRoutes(app: FastifyInstance) {
     .admin-only{display:none}
     body.is-admin .admin-only.tab{display:block}
     body.is-admin .panel.admin-only.active{display:block}
+    .super-only{display:none}
+    body.is-super-admin .super-only{display:block}
+    body.is-super-admin .super-only.tab{display:block}
+    body.is-super-admin .panel.super-only.active{display:block}
+    #familySelector{display:none;margin:16px 32px 0;max-width:1140px;margin-left:auto;margin-right:auto}
+    body.is-super-admin #familySelector{display:flex;align-items:center;gap:10px}
+    #familySelector label{margin:0;font-size:13px;font-weight:700;color:var(--c-text2);text-transform:uppercase;letter-spacing:.5px}
+    #familySelector select{width:auto;min-width:200px;padding:8px 12px;font-size:13px}
     /* CONTENT */
     .content{max-width:1140px;margin:0 auto;padding:0 32px 48px;position:relative;z-index:1}
     .panel{background:var(--c-card);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:0 var(--radius-md) var(--radius-md) var(--radius-md);border:1px solid var(--c-border);padding:28px;display:none;box-shadow:var(--shadow-sm)}
@@ -215,7 +223,15 @@ export async function webRoutes(app: FastifyInstance) {
   <div class="tab admin-only" data-tab="expenses" data-t="tab_expenses">💸 Expenses</div>
   <div class="tab admin-only" data-tab="members" data-t="tab_members">👥 Members</div>
   <div class="tab admin-only" data-tab="whatsapp" data-t="tab_whatsapp">📱 WhatsApp Config</div>
+  <div class="tab super-only" data-tab="families">🏠 Families</div>
   <div class="tab" data-tab="profile" data-t="tab_profile">👤 Profile</div>
+</div>
+
+<div id="familySelector">
+  <label>Family:</label>
+  <select id="familySelect" onchange="onFamilyFilterChange()">
+    <option value="">All families</option>
+  </select>
 </div>
 
 <div class="content">
@@ -303,6 +319,14 @@ export async function webRoutes(app: FastifyInstance) {
       <span id="waGroupCount" style="font-size:13px;color:#64748b"></span>
     </div>
     <div id="waGroupsList"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- FAMILIES PANEL (super-admin only) -->
+  <div class="panel super-only" id="tab-families">
+    <div class="toolbar">
+      <h2>All Families</h2>
+    </div>
+    <div id="familiesGrid" class="grid"><div class="loading">Loading...</div></div>
   </div>
 
   <!-- PROFILE PANEL -->
@@ -685,12 +709,17 @@ const token = localStorage.getItem('familycart_token');
 if (!token) { window.location.href = '/auth/login'; }
 
 let currentUser = {};
+let isSuperAdmin = false;
 try {
   const payload = JSON.parse(atob(token.split('.')[1]));
   currentUser = payload;
+  isSuperAdmin = !!payload.isSuperAdmin;
   // Show admin-only tabs/panels only for admin users (must run before t() which needs _translations)
-  if (payload.role === 'admin') {
+  if (payload.role === 'admin' || isSuperAdmin) {
     document.body.classList.add('is-admin');
+  }
+  if (isSuperAdmin) {
+    document.body.classList.add('is-super-admin');
   }
 } catch {}
 
@@ -1005,7 +1034,7 @@ function translatePage() {
     el.title = t(el.getAttribute('data-t-title'));
   });
   // Re-render nav badge and welcome
-  document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
+  document.getElementById('userBadge').textContent = isSuperAdmin ? '⚡ Super Admin' : currentUser.role === 'admin' ? t('admin') : t('member_role');
   if (currentUser.fullName) {
     document.getElementById('welcomeBanner').textContent = t('welcome') + ' ' + currentUser.fullName;
   }
@@ -1031,7 +1060,7 @@ document.getElementById('langSelect').value = _lang;
 document.getElementById('langSelect').onchange = function() { setLang(this.value); };
 
 // Set user badge and welcome banner now that t() is available
-document.getElementById('userBadge').textContent = currentUser.role === 'admin' ? t('admin') : t('member_role');
+document.getElementById('userBadge').textContent = isSuperAdmin ? '⚡ Super Admin' : currentUser.role === 'admin' ? t('admin') : t('member_role');
 
 // Fetch full name from profile API (token may not contain it)
 api('GET', '/auth/profile').then(function(data) {
@@ -1069,18 +1098,23 @@ function toast(msg, err) {
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  var tabEl = document.querySelector('[data-tab="' + tabName + '"]');
+  if (tabEl) tabEl.classList.add('active');
+  var panelEl = document.getElementById('tab-' + tabName);
+  if (panelEl) panelEl.classList.add('active');
+  if (tabName === 'lists') loadLists();
+  if (tabName === 'expenses') loadExpenses();
+  if (tabName === 'members') loadMembers();
+  if (tabName === 'whatsapp') renderWaGroups();
+  if (tabName === 'profile') loadProfile();
+  if (tabName === 'families') loadFamilies();
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.onclick = () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'lists') loadLists();
-    if (tab.dataset.tab === 'expenses') loadExpenses();
-    if (tab.dataset.tab === 'members') loadMembers();
-    if (tab.dataset.tab === 'whatsapp') renderWaGroups();
-    if (tab.dataset.tab === 'profile') loadProfile();
-  };
+  tab.onclick = () => switchTab(tab.dataset.tab);
 });
 
 // ── Profile ───────────────────────────────────────────────────────
@@ -1160,11 +1194,43 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 let currentListId = null;
 
+// Super-admin family filter state
+let selectedFamilyId = '';
+
+function onFamilyFilterChange() {
+  selectedFamilyId = document.getElementById('familySelect').value;
+  loadLists();
+  loadExpenses();
+}
+
+async function loadFamilies() {
+  if (!isSuperAdmin) return;
+  try {
+    const families = await api('GET', '/admin/families');
+    // Populate family selector
+    const sel = document.getElementById('familySelect');
+    sel.innerHTML = '<option value="">All families</option>' +
+      families.map(f => '<option value="' + f.id + '">' + f.name + ' (' + f.slug + ')</option>').join('');
+    // Populate families panel
+    const grid = document.getElementById('familiesGrid');
+    if (!families.length) { grid.innerHTML = '<div class="empty">No families</div>'; return; }
+    grid.innerHTML = families.map(f => \`
+      <div class="card">
+        <h3>\${f.name}</h3>
+        <div class="meta" style="margin-bottom:4px">Slug: <b>\${f.slug}</b></div>
+        <div class="meta">\${f.memberCount} members &nbsp;·&nbsp; \${f.listCount} lists</div>
+        <div style="margin-top:8px"><button class="btn btn-light" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('lists');loadLists();">View lists</button></div>
+      </div>
+    \`).join('');
+  } catch (e) { console.error('loadFamilies', e); }
+}
+
 async function loadLists() {
   const el = document.getElementById('listsGrid');
   el.innerHTML = '<div class="loading">' + t('loading') + '</div>';
   try {
-    const resp = await api('GET', '/lists?status=all');
+    const qs = 'status=all' + (isSuperAdmin && selectedFamilyId ? '&familyId=' + selectedFamilyId : '');
+    const resp = await api('GET', '/lists?' + qs);
     const lists = _or(resp.data, []);
     if (!lists.length) { el.innerHTML = '<div class="empty">' + t('no_lists') + '</div>'; return; }
     el.innerHTML = lists.map(l => \`
@@ -1172,8 +1238,9 @@ async function loadLists() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <h3 style="flex:1;cursor:pointer" onclick="openList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')">\${l.name}</h3>
           <button class="item-del" title="\${t('edit')}" onclick="event.stopPropagation();renameList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')" style="color:#6C5CE7;font-size:14px;padding:2px 4px">&#9998;</button>
-          \${currentUser.role === 'admin' ? \`<button class="item-del" title="Delete list" onclick="event.stopPropagation();deleteList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')" style="color:#b91c1c;font-size:14px;padding:2px 4px">&#128465;</button>\` : ''}
+          \${(currentUser.role === 'admin' || isSuperAdmin) ? \`<button class="item-del" title="Delete list" onclick="event.stopPropagation();deleteList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')" style="color:#b91c1c;font-size:14px;padding:2px 4px">&#128465;</button>\` : ''}
         </div>
+        \${isSuperAdmin && l.familyName ? \`<div class="meta" style="margin-bottom:4px;color:#6C5CE7;font-weight:600">🏠 \${l.familyName}</div>\` : ''}
         <div class="meta" style="margin-bottom:8px;cursor:pointer" onclick="openList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')">
           \${l.itemCount} \${t('items_word')} &nbsp;·&nbsp; \${l.purchasedCount} \${t('done_word')}
         </div>
@@ -1966,7 +2033,8 @@ async function loadExpenses() {
   const el = document.getElementById('expensesTable');
   el.innerHTML = '<div class="loading">' + t('loading') + '</div>';
   try {
-    const exps = await api('GET', '/expenses');
+    const expQs = isSuperAdmin && selectedFamilyId ? '?familyId=' + selectedFamilyId : '';
+    const exps = await api('GET', '/expenses' + expQs);
     if (!exps.length) { el.innerHTML = '<div class="empty">' + t('no_expenses') + '</div>'; return; }
     const total = exps.reduce((s, e) => s + parseFloat(e.totalAmount), 0);
     el.innerHTML = \`
@@ -2371,6 +2439,7 @@ async function showMemberQR(memberId) {
 
 // ── Initial load ──────────────────────────────────────────────────
 translatePage();
+loadFamilies();
 loadLists();
 </script>
 </body>

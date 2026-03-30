@@ -7,23 +7,32 @@ import { api }              from '../services/api'
 interface AuthUser {
   id: string
   familyId: string
+  familySlug: string
   fullName: string
   role: Role
+  isSuperAdmin: boolean
   permissions: Set<PermissionKey>
   mustChangePassword: boolean
+}
+
+interface FamilyOption {
+  slug: string
+  name: string
 }
 
 interface AuthStore {
   user: AuthUser | null
   token: string | null
   isLoading: boolean
+  familyOptions: FamilyOption[] | null // populated when multi-family selection needed
 
   // Actions
-  login: (phoneOrEmail: string, password: string) => Promise<void>
+  login: (phoneOrEmail: string, password: string, familySlug?: string) => Promise<void>
   logout: () => Promise<void>
   setToken: (token: string) => Promise<void>
   refreshPermissions: () => Promise<void>
   can: (key: PermissionKey) => boolean
+  clearFamilyOptions: () => void
 }
 
 const TOKEN_KEY = 'familycart_token'
@@ -32,10 +41,22 @@ export const useAuth = create<AuthStore>((set, get) => ({
   user: null,
   token: null,
   isLoading: true,
+  familyOptions: null,
 
-  login: async (phoneOrEmail, password) => {
-    const { data } = await api.post('/auth/login', { phoneOrEmail, password })
-    await get().setToken(data.token)
+  login: async (phoneOrEmail, password, familySlug?) => {
+    try {
+      const payload: any = { phoneOrEmail, password }
+      if (familySlug) payload.familySlug = familySlug
+      const { data } = await api.post('/auth/login', payload)
+      set({ familyOptions: null })
+      await get().setToken(data.token)
+    } catch (e: any) {
+      if (e?.response?.status === 422 && e?.response?.data?.error === 'family_required') {
+        set({ familyOptions: e.response.data.families })
+        throw e
+      }
+      throw e
+    }
   },
 
   logout: async () => {
@@ -59,8 +80,10 @@ export const useAuth = create<AuthStore>((set, get) => ({
       user: {
         id: payload.id,
         familyId: payload.familyId,
+        familySlug: payload.familySlug ?? '',
         fullName: payload.fullName ?? '',
         role: payload.role,
+        isSuperAdmin: payload.isSuperAdmin ?? false,
         permissions,
         mustChangePassword: payload.mustChangePassword ?? false,
       },
@@ -82,8 +105,11 @@ export const useAuth = create<AuthStore>((set, get) => ({
   },
 
   can: (key) => {
+    if (get().user?.isSuperAdmin) return true
     return get().user?.permissions.has(key) ?? false
   },
+
+  clearFamilyOptions: () => set({ familyOptions: null }),
 }))
 
 // Restore session on app start

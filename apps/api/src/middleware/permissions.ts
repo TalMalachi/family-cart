@@ -64,12 +64,15 @@ export function requirePermission(key: PermissionKey): preHandlerHookHandler {
       return reply.status(401).send({ error: 'unauthorized', message: 'Login required' })
     }
 
-    const { id: userId, familyId } = request.user as { id: string; familyId: string }
+    const { id: userId, familyId, isSuperAdmin } = request.user as { id: string; familyId: string; isSuperAdmin?: boolean }
 
     // 2. Set current user context for RLS
     await db`select set_config('app.current_user_id', ${userId}, true)`
 
-    // 3. Check permission
+    // 3. Super-admin bypasses all permission checks
+    if (isSuperAdmin) return
+
+    // 4. Check permission
     const perms = await getUserPermissions(userId, familyId)
 
     if (!perms.has(key)) {
@@ -98,7 +101,13 @@ export const requireAdmin: preHandlerHookHandler = async (request, reply) => {
   if (!request.user) {
     return reply.status(401).send({ error: 'unauthorized', message: 'Login required' })
   }
-  const { id: userId, familyId } = request.user as { id: string; familyId: string }
+  const { id: userId, familyId, isSuperAdmin } = request.user as { id: string; familyId: string; isSuperAdmin?: boolean }
+
+  // Super-admin bypasses admin check
+  if (isSuperAdmin) {
+    await db`select set_config('app.current_user_id', ${userId}, true)`
+    return
+  }
 
   const [row] = await db`
     select role from family_members
@@ -106,5 +115,17 @@ export const requireAdmin: preHandlerHookHandler = async (request, reply) => {
   `
   if (!row || row.role !== 'admin') {
     return reply.status(403).send({ error: 'forbidden', message: 'Admin role required' })
+  }
+}
+
+// ─── Require super-admin ──────────────────────────────────────────────────────
+
+export const requireSuperAdmin: preHandlerHookHandler = async (request, reply) => {
+  if (!request.user) {
+    return reply.status(401).send({ error: 'unauthorized', message: 'Login required' })
+  }
+  const { isSuperAdmin } = request.user as { isSuperAdmin?: boolean }
+  if (!isSuperAdmin) {
+    return reply.status(403).send({ error: 'forbidden', message: 'Super admin required' })
   }
 }

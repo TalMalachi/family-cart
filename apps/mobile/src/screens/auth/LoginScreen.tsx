@@ -11,26 +11,32 @@ import { Colors, FontSize, FontWeight, Radius, Space, Shadow, Gradients } from '
 
 export default function LoginScreen() {
   const router        = useRouter()
-  const { login }     = useAuth()
-  const [value, setValue]   = useState('')
+  const { login, familyOptions, clearFamilyOptions } = useAuth()
+  const [value, setValue]       = useState('')
   const [password, setPassword] = useState('')
+  const [familySlug, setFamilySlug] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
   const canSubmit = value.length >= 4 && password.length >= 6
 
-  const handleLogin = async () => {
+  const handleLogin = async (slug?: string) => {
     if (!canSubmit) return
     setLoading(true)
     setError('')
     try {
-      await login(value, password)
+      await login(value, password, slug || familySlug || undefined)
     } catch (e: any) {
-      setError(
-        e?.response?.status === 401
-          ? 'Incorrect phone/email or password'
-          : 'Something went wrong. Please try again.'
-      )
+      if (e?.response?.status === 422 && e?.response?.data?.error === 'family_required') {
+        // familyOptions are now set in the store — UI will show picker
+        setError('')
+      } else {
+        setError(
+          e?.response?.status === 401
+            ? 'Incorrect phone/email or password'
+            : 'Something went wrong. Please try again.'
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -74,8 +80,20 @@ export default function LoginScreen() {
               placeholder="+972 50 000 0000"
               placeholderTextColor={Colors.textTertiary}
               value={value}
-              onChangeText={t => { setValue(t); setError('') }}
+              onChangeText={t => { setValue(t); setError(''); clearFamilyOptions() }}
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+
+            <Text style={styles.label}>Family name <Text style={styles.labelHint}>(optional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. levi-family"
+              placeholderTextColor={Colors.textTertiary}
+              value={familySlug}
+              onChangeText={t => { setFamilySlug(t); setError(''); clearFamilyOptions() }}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
@@ -90,14 +108,34 @@ export default function LoginScreen() {
               onChangeText={t => { setPassword(t); setError('') }}
               secureTextEntry
               returnKeyType="done"
-              onSubmitEditing={handleLogin}
+              onSubmitEditing={() => handleLogin()}
             />
 
             {!!error && <Text style={styles.errorText}>{error}</Text>}
 
+            {/* Family picker when user belongs to multiple families */}
+            {familyOptions && familyOptions.length > 0 && (
+              <View style={styles.familyPicker}>
+                <Text style={styles.familyPickerTitle}>Select your family:</Text>
+                {familyOptions.map(f => (
+                  <TouchableOpacity
+                    key={f.slug}
+                    style={styles.familyOption}
+                    onPress={() => {
+                      setFamilySlug(f.slug)
+                      handleLogin(f.slug)
+                    }}
+                  >
+                    <Text style={styles.familyOptionName}>{f.name}</Text>
+                    <Text style={styles.familyOptionSlug}>{f.slug}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.btn, !canSubmit && styles.btnDisabled]}
-              onPress={handleLogin}
+              onPress={() => handleLogin()}
               activeOpacity={0.85}
               disabled={!canSubmit || loading}
             >
@@ -169,6 +207,12 @@ const styles = StyleSheet.create({
   cardTitle:    { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
   cardSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Space.xs, marginBottom: Space.xl },
   label:        { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.5, textTransform: 'uppercase' },
+  labelHint:    { fontWeight: FontWeight.regular as any, color: Colors.textTertiary, textTransform: 'none' as any },
+  familyPicker:      { marginBottom: Space.md },
+  familyPickerTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.sm },
+  familyOption:      { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, padding: Space.md, marginBottom: Space.xs },
+  familyOptionName:  { fontSize: FontSize.md, fontWeight: FontWeight.semi, color: Colors.textPrimary },
+  familyOptionSlug:  { fontSize: FontSize.xs, color: Colors.textTertiary, marginTop: 2 },
   input:        {
     backgroundColor: Colors.bgSecondary,
     borderWidth: 1, borderColor: Colors.border,

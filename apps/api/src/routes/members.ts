@@ -9,14 +9,28 @@ export async function membersRoutes(app: FastifyInstance) {
 
   // GET /members  — list all active members in the family
   app.get('/', { preHandler: requirePermission('lists.read') }, async (request) => {
-    const { familyId } = request.user as any
+    const { familyId, isSuperAdmin } = request.user as any
+    const qFamilyId = (request.query as any)?.familyId
+    if (isSuperAdmin && !qFamilyId) {
+      // Super-admin: return all members across all families
+      return db`
+        select fm.id, fm.role, fm.status, fm.joined_at,
+               u.id as user_id, u.full_name, u.phone, u.email,
+               u.must_change_password, f.name as family_name, f.id as family_id
+        from family_members fm
+        join users u on u.id = fm.user_id
+        join families f on f.id = fm.family_id
+        order by f.name, fm.joined_at asc
+      `
+    }
+    const effectiveFamilyId = (isSuperAdmin && qFamilyId) || familyId
     return db`
       select fm.id, fm.role, fm.status, fm.joined_at,
              u.id as user_id, u.full_name, u.phone, u.email,
              u.must_change_password
       from family_members fm
       join users u on u.id = fm.user_id
-      where fm.family_id = ${familyId}
+      where fm.family_id = ${effectiveFamilyId}
       order by fm.joined_at asc
     `
   })

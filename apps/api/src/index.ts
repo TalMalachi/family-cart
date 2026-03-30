@@ -14,6 +14,7 @@ import { mediaRoutes }      from './routes/media'
 import { permissionsRoutes } from './routes/permissions'
 import { webRoutes }         from './routes/web'
 import { shareRoutes }       from './routes/share'
+import { adminRoutes }       from './routes/admin'
 import { env }              from '../config/env'
 import { redis }            from './db/redis'
 import { ensureDefaultAdmin } from './services/bootstrapAdmin'
@@ -68,6 +69,7 @@ async function start() {
   await app.register(mediaRoutes,       { prefix: '/media' })
   await app.register(permissionsRoutes, { prefix: '/permissions' })
   await app.register(shareRoutes,       { prefix: '/share' })
+  await app.register(adminRoutes,       { prefix: '/admin' })
   await app.register(webRoutes)
 
   // Ensure first-time access in fresh environments.

@@ -61,10 +61,14 @@ export async function authRoutes(app: FastifyInstance) {
       <label for="phoneOrEmail">Phone or email</label>
       <input id="phoneOrEmail" name="phoneOrEmail" placeholder="admin@familycart.local" required />
 
+      <label for="familySlug">Family name <span style="color:#94a3b8;font-weight:normal">(optional)</span></label>
+      <input id="familySlug" name="familySlug" placeholder="e.g. levi-family" />
+
       <label for="password">Password</label>
       <input id="password" name="password" type="password" placeholder="********" required />
 
       <button id="submitBtn" type="submit">Login</button>
+      <div id="familyPicker" style="display:none;margin-top:12px"></div>
       <p class="hint">Uses POST /auth/login and returns JWT token.</p>
       <div id="message"></div>
     </form>
@@ -92,10 +96,12 @@ export async function authRoutes(app: FastifyInstance) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Logging in...';
 
+      const familySlugVal = document.getElementById('familySlug').value.trim();
       const payload = {
         phoneOrEmail: document.getElementById('phoneOrEmail').value,
         password: document.getElementById('password').value,
       };
+      if (familySlugVal) payload.familySlug = familySlugVal;
 
       try {
         const res = await fetch('/auth/login', {
@@ -110,6 +116,18 @@ export async function authRoutes(app: FastifyInstance) {
           data = raw ? JSON.parse(raw) : {};
         } catch {
           data = { message: raw || 'Unexpected response' };
+        }
+
+        if (res.status === 422 && data.error === 'family_required') {
+          // Show family picker
+          const picker = document.getElementById('familyPicker');
+          picker.innerHTML = '<label style="margin:0 0 6px;display:block;font-size:14px;color:#334155">Select your family:</label>'
+            + data.families.map(f =>
+              '<button type="button" style="display:block;width:100%;margin:4px 0;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:14px;text-align:left" onclick="document.getElementById(\'familySlug\').value=\'' + f.slug + '\';document.getElementById(\'familyPicker\').style.display=\'none\';document.getElementById(\'loginForm\').requestSubmit()">'
+              + f.name + ' <span style="color:#94a3b8;font-size:12px">(' + f.slug + ')</span></button>'
+            ).join('');
+          picker.style.display = 'block';
+          return;
         }
 
         if (!res.ok) {
@@ -251,7 +269,7 @@ export async function authRoutes(app: FastifyInstance) {
     const body = LoginSchema.parse(request.body)
 
     const [user] = await db`
-      select id, full_name, password_hash, must_change_password
+      select id, full_name, password_hash, must_change_password, is_super_admin
       from users
       where phone = ${body.phoneOrEmail}
          or email = ${body.phoneOrEmail}
@@ -261,24 +279,52 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'invalid_credentials' })
     }
 
-    // Load family context (first active membership)
-    const [membership] = await db`
-      select family_id, role from family_members
-      where user_id = ${user.id} and status = 'active'
-      limit 1
-    `
-
-    // Only members with active status can login.
-    if (!membership) {
-      return reply.status(403).send({ error: 'account_inactive', message: 'Only active members can login' })
+    // Load family context — scoped by slug if provided
+    let membership: any
+    if (body.familySlug) {
+      // Specific family requested
+      ;[membership] = await db`
+        select fm.family_id, fm.role, f.slug as family_slug, f.name as family_name
+        from family_members fm
+        join families f on f.id = fm.family_id
+        where fm.user_id = ${user.id} and fm.status = 'active'
+          and f.slug = ${body.familySlug}
+        limit 1
+      `
+      if (!membership) {
+        return reply.status(403).send({ error: 'not_family_member', message: 'You are not a member of this family' })
+      }
+    } else {
+      // No slug — check how many families the user belongs to
+      const memberships = await db`
+        select fm.family_id, fm.role, f.slug as family_slug, f.name as family_name
+        from family_members fm
+        join families f on f.id = fm.family_id
+        where fm.user_id = ${user.id} and fm.status = 'active'
+        order by fm.joined_at asc
+      `
+      if (memberships.length === 0) {
+        return reply.status(403).send({ error: 'account_inactive', message: 'Only active members can login' })
+      }
+      if (memberships.length > 1) {
+        // User belongs to multiple families — require selection
+        return reply.status(422).send({
+          error: 'family_required',
+          message: 'Please select a family to log into',
+          families: memberships.map((m: any) => ({ slug: m.familySlug, name: m.familyName })),
+        })
+      }
+      membership = memberships[0]
     }
 
     const token = app.jwt.sign(
       {
         id:       user.id,
         familyId: membership.familyId,
+        familySlug: membership.familySlug,
         fullName: user.fullName,
         role:     membership.role,
+        isSuperAdmin: user.isSuperAdmin,
         mustChangePassword: user.mustChangePassword,
       },
       { expiresIn: '7d' }
@@ -302,10 +348,17 @@ export async function authRoutes(app: FastifyInstance) {
     // Create family if admin is registering fresh
     let familyId: string
     if (body.role === 'admin') {
+      const familyName = body.familyName ?? body.fullName + "'s family"
+      let slug = familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      // Ensure slug uniqueness
+      const [existing] = await db`select 1 from families where slug = ${slug}`
+      if (existing) {
+        slug = slug + '-' + nanoid(4)
+      }
       const [family] = await db`
-        insert into families (name, created_by)
-        values (${body.familyName ?? body.fullName + "'s family"}, ${user.id})
-        returning id
+        insert into families (name, slug, created_by)
+        values (${familyName}, ${slug}, ${user.id})
+        returning id, slug
       `
       familyId = family.id
     } else {
@@ -317,8 +370,10 @@ export async function authRoutes(app: FastifyInstance) {
       values (${user.id}, ${familyId}, 'admin', 'active')
     `
 
+    // Look up the family slug for the JWT
+    const [regFamily] = await db`select slug from families where id = ${familyId}`
     const token = app.jwt.sign(
-      { id: user.id, familyId, fullName: body.fullName, role: 'admin', mustChangePassword: false },
+      { id: user.id, familyId, familySlug: regFamily.slug, fullName: body.fullName, role: 'admin', isSuperAdmin: false, mustChangePassword: false },
       { expiresIn: '7d' }
     )
     return reply.status(201).send({ token })
@@ -681,8 +736,9 @@ export async function authRoutes(app: FastifyInstance) {
       update invitations set status = 'accepted' where id = ${claim.inviteId}
     `
 
+    const [spFamily] = await db`select slug from families where id = ${claim.familyId}`
     const token = app.jwt.sign(
-      { id: user.id, familyId: claim.familyId, fullName: user.fullName, role: claim.role, mustChangePassword: false },
+      { id: user.id, familyId: claim.familyId, familySlug: spFamily?.slug, fullName: user.fullName, role: claim.role, isSuperAdmin: false, mustChangePassword: false },
       { expiresIn: '7d' }
     )
     return { token }

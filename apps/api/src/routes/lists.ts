@@ -14,8 +14,23 @@ import { searchNearbyStores } from '../services/storeSearch'
 
 export async function listsRoutes(app: FastifyInstance) {
 
+  // Helper: resolve effective familyId for super-admin queries
+  function getEffectiveFamilyId(request: any): string | null {
+    const { familyId, isSuperAdmin } = request.user as any
+    if (isSuperAdmin) {
+      const qFamilyId = (request.query as any)?.familyId
+      return qFamilyId || null // null = all families
+    }
+    return familyId
+  }
+
+  // Helper: check if current user is super-admin
+  function isSuperAdmin(request: any): boolean {
+    return !!(request.user as any)?.isSuperAdmin
+  }
+
   app.get('/', { preHandler: requirePermission('lists.read') }, async (request, reply) => {
-    const { familyId } = request.user as any
+    const effectiveFamilyId = getEffectiveFamilyId(request)
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send({ error: 'invalid_query', message: parsed.error.message })
@@ -27,20 +42,22 @@ export async function listsRoutes(app: FastifyInstance) {
       else if (status === 'completed') statusFilter = `and sl.status = 'completed'`
       else if (status === 'archived') statusFilter = `and sl.status = 'archived'`
     }
+    const familyFilter = effectiveFamilyId ? `and sl.family_id = '${effectiveFamilyId}'` : ''
     const offset = (page - 1) * pageSize
     const lists = await db`
-      select sl.*,
+      select sl.*, f.name as family_name,
         count(si.id)::int as item_count,
         count(si.id) filter (where si.is_purchased)::int as purchased_count
       from shopping_lists sl
+      join families f on f.id = sl.family_id
       left join shopping_items si on si.list_id = sl.id
-      where sl.family_id = ${familyId} ${db.unsafe(statusFilter)}
-      group by sl.id
+      where true ${db.unsafe(familyFilter)} ${db.unsafe(statusFilter)}
+      group by sl.id, f.name
       order by sl.created_at desc
       limit ${pageSize} offset ${offset}
     `
     const [{ total }] = await db`
-      select count(*)::int as total from shopping_lists sl where sl.family_id = ${familyId} ${db.unsafe(statusFilter)}
+      select count(*)::int as total from shopping_lists sl where true ${db.unsafe(familyFilter)} ${db.unsafe(statusFilter)}
     `
     return {
       data: lists,
@@ -55,7 +72,7 @@ export async function listsRoutes(app: FastifyInstance) {
     const { familyId } = request.user as any
     const [list] = await db`select * from shopping_lists where id = ${id}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const items = await db`
       select si.*,
         coalesce(json_agg(distinct jsonb_build_object(
@@ -80,7 +97,7 @@ export async function listsRoutes(app: FastifyInstance) {
     const { familyId } = request.user as any
     const [list] = await db`select * from shopping_lists where id = ${id}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
 
     // Pre-render the share page while we have an authenticated DB context
     // (RLS is satisfied here). The public share route reads from Redis only.
@@ -98,7 +115,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Load parent list
     const [list] = await db`select * from shopping_lists where id = ${itemMeta.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     // Now run aggregate detail query
     const [item] = await db`
       select si.*,
@@ -126,9 +143,11 @@ export async function listsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid_body', message: e.message })
     }
     const { familyId, id: userId } = request.user as any
+    // Super-admin can specify which family to create in
+    const targetFamilyId = (isSuperAdmin(request) && (request.body as any).familyId) || familyId
     const [list] = await db`
       insert into shopping_lists (family_id, name, created_by)
-      values (${familyId}, ${body.name}, ${userId}) returning *
+      values (${targetFamilyId}, ${body.name}, ${userId}) returning *
     `
     return reply.status(201).send(list)
   })
@@ -139,7 +158,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify list exists
     const [list] = await db`select * from shopping_lists where id = ${id}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const body = request.body as any
     const updates: Record<string, any> = {}
     for (const k of ['name', 'status']) if (k in body) updates[k] = body[k]
@@ -164,7 +183,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify list exists
     const [list] = await db`select * from shopping_lists where id = ${id}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     await db`delete from shopping_lists where id = ${id}`
     return reply.status(204).send()
   })
@@ -181,7 +200,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify parent list exists and belongs to family
     const [list] = await db`select * from shopping_lists where id = ${listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const [item] = await db`
       insert into shopping_items (list_id, name, quantity, unit, estimated_price, category, created_by)
       values (${listId}, ${body.name}, ${body.quantity}, ${body.unit ?? null},
@@ -206,7 +225,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify parent list
     const [list] = await db`select * from shopping_lists where id = ${item0.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const updates: Record<string, any> = { ...body, updated_at: new Date() }
     if (Object.keys(updates).length === 1 && updates.updated_at) return reply.status(400).send({ error: 'empty_update' })
     if (body.isPurchased === true)  { updates.purchased_by = userId;  updates.purchased_at = new Date() }
@@ -224,7 +243,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify parent list
     const [list] = await db`select * from shopping_lists where id = ${item.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     await db`delete from shopping_items where id = ${itemId}`
     return reply.status(204).send()
   })
@@ -244,7 +263,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify parent list
     const [list] = await db`select * from shopping_lists where id = ${item.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const imageUrl = url.trim()
     if (isPrimary) {
       await db`update product_images set is_primary = false where item_id = ${itemId}`
@@ -272,7 +291,7 @@ export async function listsRoutes(app: FastifyInstance) {
     if (!item) return reply.status(404).send({ error: 'not_found' })
     const [list] = await db`select * from shopping_lists where id = ${item.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     const [alt] = await db`
       insert into alternative_products (item_id, name, note, priority)
       values (${itemId}, ${body.name}, ${body.note ?? null}, ${body.priority}) returning *
@@ -289,7 +308,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Verify parent list
     const [list] = await db`select * from shopping_lists where id = ${item.listId}`
     if (!list) return reply.status(404).send({ error: 'not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
     // Verify alternative exists
     const [alt] = await db`select * from alternative_products where id = ${altId}`
     if (!alt) return reply.status(404).send({ error: 'not_found' })
@@ -326,7 +345,7 @@ export async function listsRoutes(app: FastifyInstance) {
     // Get list items
     const [list] = await db`select * from shopping_lists where id = ${id}`
     if (!list) return reply.status(404).send({ error: 'list_not_found' })
-    if (list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
+    if (!isSuperAdmin(request) && list.familyId !== familyId) return reply.status(403).send({ error: 'forbidden' })
 
     const items = await db`
       select name, quantity, unit from shopping_items

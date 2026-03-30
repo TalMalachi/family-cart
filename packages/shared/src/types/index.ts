@@ -26,6 +26,7 @@ export interface FamilyMember {
 export interface Family {
   id: string
   name: string
+  slug: string
   createdBy: string
   createdAt: string
   members: FamilyMember[]

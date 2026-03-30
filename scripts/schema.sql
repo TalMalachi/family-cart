@@ -15,6 +15,7 @@ create table users (
   full_name    text not null,
   password_hash text not null,
   must_change_password boolean default false,
+  is_super_admin boolean not null default false,
   created_at   timestamptz default now()
 );
 
@@ -22,6 +23,7 @@ create table users (
 create table families (
   id                   uuid primary key default gen_random_uuid(),
   name                 text not null,
+  slug                 text unique not null,
   whatsapp_group_link  text,
   created_by           uuid references users(id) on delete set null,
   created_at           timestamptz default now()
@@ -171,6 +173,16 @@ alter table expenses                  enable row level security;
 alter table user_permission_overrides enable row level security;
 alter table invitations               enable row level security;
 
+-- Helper: is the calling user a super admin?
+create or replace function is_super_admin()
+returns boolean language sql security definer as $$
+  select exists (
+    select 1 from users
+    where id = (current_setting('app.current_user_id', true))::uuid
+      and is_super_admin = true
+  )
+$$;
+
 -- Helper: is the calling user a member of this family?
 create or replace function is_family_member(fam_id uuid)
 returns boolean language sql security definer as $$
@@ -260,3 +272,14 @@ create policy "admin_overrides" on user_permission_overrides
 -- Invitations: admin can manage, pending user can read their own
 create policy "admin_invitations" on invitations
   for all using (is_family_admin(family_id));
+
+-- ─── Super-admin bypass policies ──────────────────────────────────
+create policy "super_admin_families" on families for all using (is_super_admin());
+create policy "super_admin_members" on family_members for all using (is_super_admin());
+create policy "super_admin_lists" on shopping_lists for all using (is_super_admin());
+create policy "super_admin_items" on shopping_items for all using (is_super_admin());
+create policy "super_admin_images" on product_images for all using (is_super_admin());
+create policy "super_admin_alts" on alternative_products for all using (is_super_admin());
+create policy "super_admin_expenses" on expenses for all using (is_super_admin());
+create policy "super_admin_overrides" on user_permission_overrides for all using (is_super_admin());
+create policy "super_admin_invitations" on invitations for all using (is_super_admin());
