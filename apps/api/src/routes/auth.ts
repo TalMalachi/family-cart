@@ -306,14 +306,15 @@ export async function authRoutes(app: FastifyInstance) {
       if (memberships.length === 0) {
         return reply.status(403).send({ error: 'account_inactive', message: 'Only active members can login' })
       }
-      if (memberships.length > 1) {
-        // User belongs to multiple families — require selection
+      if (memberships.length > 1 && !user.isSuperAdmin) {
+        // Regular user belongs to multiple families — require selection
         return reply.status(422).send({
           error: 'family_required',
           message: 'Please select a family to log into',
           families: memberships.map((m: any) => ({ slug: m.familySlug, name: m.familyName })),
         })
       }
+      // Super-admin just uses first membership (they can see all families anyway)
       membership = memberships[0]
     }
 
