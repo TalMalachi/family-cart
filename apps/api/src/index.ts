@@ -78,6 +78,24 @@ async function start() {
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
+  // ─── IP-based geolocation fallback ─────────────────────────────
+  // Used when browser Geolocation API is unavailable (non-HTTPS)
+  app.get('/geolocate', async (request, reply) => {
+    const forwarded = request.headers['x-forwarded-for']
+    const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : request.ip
+    try {
+      const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,lat,lon,city,country`)
+      const data = await res.json() as any
+      if (data.status === 'success') {
+        return { lat: data.lat, lng: data.lon, city: data.city, country: data.country }
+      }
+      // ip-api fails for private/local IPs — return a sensible default or error
+      return reply.status(422).send({ error: 'geolocate_failed', message: 'Could not determine location from IP' })
+    } catch (err: any) {
+      return reply.status(502).send({ error: 'geolocate_error', message: err.message })
+    }
+  })
+
   // ─── Start ──────────────────────────────────────────────────────
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
 }

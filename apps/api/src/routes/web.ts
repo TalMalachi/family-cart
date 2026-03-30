@@ -737,12 +737,15 @@ const _translations = {
   no_items: { en: 'No items yet. Add one!', he: 'אין פריטים עדיין. הוסף אחד!' },
   rename_list_prompt: { en: 'Enter new list name:', he: 'הזן שם רשימה חדש:' },
   list_renamed: { en: 'List renamed!', he: 'שם הרשימה שונה!' },
+  delete_list_confirm: { en: 'Are you sure you want to permanently delete this list?', he: 'האם אתה בטוח שברצונך למחוק את הרשימה הזו לצמיתות?' },
+  list_deleted: { en: 'List deleted', he: 'הרשימה נמחקה' },
   // Nearby stores
   find_stores: { en: '📍 Find Nearby Stores', he: '📍 מצא סופרים קרובים' },
   nearby_stores: { en: 'Nearby Supermarkets', he: 'סופרמרקטים קרובים' },
   searching_stores: { en: 'Searching nearby supermarkets...', he: 'מחפש סופרמרקטים קרובים...' },
   getting_location: { en: 'Getting your location...', he: 'מקבל את המיקום שלך...' },
   location_denied: { en: 'Location access denied. Please allow location in your browser settings and reload the page.', he: 'גישה למיקום נדחתה. אנא אפשר מיקום בהגדרות הדפדפן וטען מחדש את הדף.' },
+  location_ip_fallback: { en: 'Using approximate location from IP...', he: 'משתמש במיקום משוער לפי כתובת IP...' },
   location_unavailable: { en: 'Could not determine your location. Please make sure location services are enabled on your device.', he: 'לא ניתן לקבוע את המיקום שלך. אנא ודא שהמיקום מופעל במכשיר שלך.' },
   location_timeout: { en: 'Location request timed out. Please try again.', he: 'בקשת המיקום פגה. אנא נסה שוב.' },
   no_stores_found: { en: 'No supermarkets found within 10km.', he: 'לא נמצאו סופרמרקטים בטווח 10 ק״מ.' },
@@ -1169,6 +1172,7 @@ async function loadLists() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <h3 style="flex:1;cursor:pointer" onclick="openList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')">\${l.name}</h3>
           <button class="item-del" title="\${t('edit')}" onclick="event.stopPropagation();renameList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')" style="color:#6C5CE7;font-size:14px;padding:2px 4px">&#9998;</button>
+          \${currentUser.role === 'admin' ? \`<button class="item-del" title="Delete list" onclick="event.stopPropagation();deleteList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')" style="color:#b91c1c;font-size:14px;padding:2px 4px">&#128465;</button>\` : ''}
         </div>
         <div class="meta" style="margin-bottom:8px;cursor:pointer" onclick="openList('\${l.id}', '\${l.name.replace(/'/g,'&apos;')}')">
           \${l.itemCount} \${t('items_word')} &nbsp;·&nbsp; \${l.purchasedCount} \${t('done_word')}
@@ -1198,6 +1202,15 @@ async function renameList(listId, currentName) {
   try {
     await api('PATCH', '/lists/' + listId, { name: newName.trim() });
     toast(t('list_renamed'));
+    loadLists();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteList(listId, listName) {
+  if (!confirm(t('delete_list_confirm') + '\\n\\n' + listName)) return;
+  try {
+    await api('DELETE', '/lists/' + listId);
+    toast(t('list_deleted'));
     loadLists();
   } catch (e) { toast(e.message, true); }
 }
@@ -1441,38 +1454,53 @@ document.getElementById('findStoresBtn').onclick = () => {
     });
   }
 
+  function ipFallback() {
+    content.innerHTML = '<div class="loading">' + t('location_ip_fallback') + '</div>';
+    fetch('/geolocate').then(function(r) { return r.json(); }).then(function(data) {
+      if (data.lat && data.lng) {
+        onLocationSuccess({ coords: { latitude: data.lat, longitude: data.lng } });
+      } else {
+        content.innerHTML = '<div class="empty">' + t('location_unavailable') + '</div>';
+      }
+    }).catch(function() {
+      content.innerHTML = '<div class="empty">' + t('location_unavailable') + '</div>';
+    });
+  }
+
   function onLocationError(err) {
-    if (err.code === 1) {
-      // PERMISSION_DENIED
-      content.innerHTML = '<div class="empty">' + t('location_denied') + '</div>';
-    } else if (err.code === 3) {
+    if (err.code === 3) {
       // TIMEOUT
       content.innerHTML = '<div class="empty">' + t('location_timeout') + '</div>';
     } else {
-      // POSITION_UNAVAILABLE or unknown
-      content.innerHTML = '<div class="empty">' + t('location_unavailable') + '</div>';
+      // PERMISSION_DENIED or POSITION_UNAVAILABLE — try IP fallback
+      ipFallback();
     }
   }
 
-  // Try high accuracy first; if it fails with POSITION_UNAVAILABLE or TIMEOUT,
-  // retry with low accuracy (IP/WiFi-based) which works on most desktops.
-  navigator.geolocation.getCurrentPosition(
-    onLocationSuccess,
-    function(err) {
-      if (err.code === 1) {
-        // Permission denied — no point retrying
-        onLocationError(err);
-      } else {
-        // Retry without high accuracy
-        navigator.geolocation.getCurrentPosition(
-          onLocationSuccess,
-          onLocationError,
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
-        );
-      }
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
+  if (!navigator.geolocation || !window.isSecureContext) {
+    // Geolocation unavailable (non-HTTPS or unsupported) — use IP fallback
+    ipFallback();
+  } else {
+    // Try high accuracy first; if it fails with POSITION_UNAVAILABLE or TIMEOUT,
+    // retry with low accuracy (IP/WiFi-based) which works on most desktops.
+    navigator.geolocation.getCurrentPosition(
+      onLocationSuccess,
+      function(err) {
+        if (err.code === 1) {
+          // Permission denied — fall back to IP geolocation
+          ipFallback();
+        } else {
+          // Retry without high accuracy
+          navigator.geolocation.getCurrentPosition(
+            onLocationSuccess,
+            onLocationError,
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
+          );
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
 };
 
 function renderNearbyStores(result) {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Image, RefreshControl, TextInput, Modal, Alert, ActivityIndicator,
@@ -114,6 +114,21 @@ export default function ListDetailScreen() {
     },
   })
 
+  const deleteListMutation = useMutation({
+    mutationFn: () => api.delete(`/lists/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lists'] })
+      router.back()
+    },
+  })
+
+  const confirmDeleteList = useCallback(() => {
+    Alert.alert('Delete list', `Permanently delete "${list?.name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteListMutation.mutate() },
+    ])
+  }, [list?.name])
+
   const grouped = useMemo(() => {
     if (!list?.items) return []
     const map = new Map<string, ShoppingItem[]>()
@@ -159,6 +174,18 @@ export default function ListDetailScreen() {
           <Text style={styles.navBack}>←</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>{list.name}</Text>
+        <PermissionGate require="lists.delete">
+          <TouchableOpacity
+            style={styles.navDeleteBtn}
+            onPress={confirmDeleteList}
+            disabled={deleteListMutation.isPending}
+          >
+            {deleteListMutation.isPending
+              ? <ActivityIndicator color={Colors.white} size="small" />
+              : <Text style={styles.navDeleteBtnText}>🗑</Text>
+            }
+          </TouchableOpacity>
+        </PermissionGate>
         <TouchableOpacity
           style={styles.waShareBtn}
           onPress={() => shareListToWhatsApp(list)}
@@ -277,6 +304,8 @@ const styles = StyleSheet.create({
   navTitle:        { flex: 1, fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.white },
   navProgressBadge:{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 4 },
   navProgress:     { fontSize: FontSize.sm, color: Colors.white, fontWeight: FontWeight.semi },
+  navDeleteBtn:    { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  navDeleteBtnText:{ fontSize: 16 },
   waShareBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   waShareBtnText:  { fontSize: 16 },
   progBg:          { height: 4, backgroundColor: Colors.bgSecondary },
