@@ -607,13 +607,18 @@ export async function webRoutes(app: FastifyInstance) {
     </div>
 
     <div class="edit-section">
-      <div class="edit-section-title">Role</div>
-      <div class="edit-row single">
+      <div class="edit-section-title">Role &amp; Family</div>
+      <div class="edit-row">
         <div class="edit-field">
+          <label>Role</label>
           <select id="inviteRole">
             <option value="member">Member</option>
             <option value="admin">Admin</option>
           </select>
+        </div>
+        <div class="edit-field super-only">
+          <label>Family <span style="color:#ef4444">*</span></label>
+          <select id="inviteFamily"></select>
         </div>
       </div>
       <div class="super-only">
@@ -2292,6 +2297,13 @@ document.getElementById('inviteMemberBtn').onclick = () => {
   document.getElementById('inviteRole').value = 'member';
   var saCb = document.getElementById('inviteSysAdmin');
   if (saCb) saCb.checked = false;
+  // Populate family dropdown for sys_admin
+  var invFamSel = document.getElementById('inviteFamily');
+  if (invFamSel && isSuperAdmin) {
+    var famOpts = document.getElementById('familySelect');
+    invFamSel.innerHTML = famOpts ? famOpts.innerHTML.replace('<option value="">All families</option>', '') : '';
+    if (selectedFamilyId) invFamSel.value = selectedFamilyId;
+  }
   openModal('inviteMemberModal');
 };
 
@@ -2309,13 +2321,22 @@ document.getElementById('sendInviteBtn').onclick = async () => {
     toast(t('required_fields'), true);
     return;
   }
+  // sys_admin must select a family
+  var invFamSel = document.getElementById('inviteFamily');
+  const inviteFamilyId = (isSuperAdmin && invFamSel) ? invFamSel.value : '';
+  if (isSuperAdmin && !inviteFamilyId) {
+    toast('Please select a family', true);
+    return;
+  }
   emailInput.value = email;
   if (!emailInput.checkValidity()) {
     toast(t('valid_email'), true);
     return;
   }
   try {
-    const inviteRes = await api('POST', '/auth/invite', { fullName, phone, email, role });
+    const invitePayload = { fullName, phone, email, role };
+    if (isSuperAdmin && inviteFamilyId) invitePayload.familyId = inviteFamilyId;
+    const inviteRes = await api('POST', '/auth/invite', invitePayload);
     // If sys_admin checkbox is checked, promote the invited user
     var saCb = document.getElementById('inviteSysAdmin');
     if (isSuperAdmin && saCb && saCb.checked) {

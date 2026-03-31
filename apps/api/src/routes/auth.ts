@@ -514,7 +514,12 @@ export async function authRoutes(app: FastifyInstance) {
       })
     }
     const body = parsed.data
-    const { familyId, id: invitedBy } = request.user as any
+    const { familyId: jwtFamilyId, id: invitedBy, isSuperAdmin: callerIsSuperAdmin } = request.user as any
+    // sys_admin can specify which family to invite into
+    const familyId = (callerIsSuperAdmin && (request.body as any).familyId) || jwtFamilyId
+    if (!familyId) {
+      return reply.status(400).send({ error: 'family_required', message: 'Please select a family to invite into' })
+    }
 
     // Ensure invited person exists by email, while phone can be non-unique.
     const tempHash = await bcrypt.hash(nanoid(16), 8)
@@ -588,20 +593,32 @@ export async function authRoutes(app: FastifyInstance) {
     config: { rateLimit: { max: 10, timeWindow: '15 minutes' } },
   }, async (request, reply) => {
     const { userId } = request.body as { userId?: string }
-    const { familyId, id: invitedBy } = request.user as any
+    const { familyId, id: invitedBy, isSuperAdmin: callerIsSuperAdmin } = request.user as any
 
     if (!userId) {
       return reply.status(400).send({ error: 'invalid_payload', message: 'userId is required' })
     }
 
-    // Verify the member belongs to this family and hasn't set their password yet
-    const [member] = await db`
-      select u.id, u.full_name, u.phone, u.email, u.must_change_password,
-             fm.role
-      from family_members fm
-      join users u on u.id = fm.user_id
-      where fm.user_id = ${userId} and fm.family_id = ${familyId}
-    `
+    // Verify the member exists (sys_admin can access any user)
+    let member: any
+    if (callerIsSuperAdmin) {
+      ;[member] = await db`
+        select u.id, u.full_name, u.phone, u.email, u.must_change_password,
+               fm.role, fm.family_id
+        from users u
+        left join family_members fm on fm.user_id = u.id
+        where u.id = ${userId}
+        limit 1
+      `
+    } else {
+      ;[member] = await db`
+        select u.id, u.full_name, u.phone, u.email, u.must_change_password,
+               fm.role, fm.family_id
+        from family_members fm
+        join users u on u.id = fm.user_id
+        where fm.user_id = ${userId} and fm.family_id = ${familyId}
+      `
+    }
     if (!member) {
       return reply.status(404).send({ error: 'member_not_found' })
     }
@@ -609,10 +626,14 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'already_accepted', message: 'This member has already set their password' })
     }
 
-    // Expire any previous pending invitations for this user in this family
+    // Use the member's actual familyId (from their membership row)
+    const effectiveFamilyId = member.familyId || familyId
+
+    // Expire any previous pending invitations for this user
     await db`
       update invitations set status = 'expired'
-      where family_id = ${familyId} and email = ${member.email} and status = 'pending'
+      where email = ${member.email} and status = 'pending'
+      ${effectiveFamilyId ? db`and family_id = ${effectiveFamilyId}` : db``}
     `
 
     // Generate new OTP and invitation
@@ -623,7 +644,7 @@ export async function authRoutes(app: FastifyInstance) {
       insert into invitations
         (family_id, phone, email, full_name, role, otp_hash, invited_by, expires_at)
       values (
-        ${familyId}, ${member.phone}, ${member.email}, ${member.fullName}, ${member.role},
+        ${effectiveFamilyId}, ${member.phone}, ${member.email}, ${member.fullName}, ${member.role || 'member'},
         ${otpHash}, ${invitedBy},
         now() + interval '7 days'
       )
@@ -634,8 +655,8 @@ export async function authRoutes(app: FastifyInstance) {
       {
         inviteId:           invitation.id,
         phone:              member.phone,
-        familyId,
-        role:               member.role,
+        familyId:           effectiveFamilyId,
+        role:               member.role || 'member',
         mustChangePassword: true,
       },
       { expiresIn: '7d' }
@@ -667,13 +688,21 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid_payload', message: 'Password must be at least 8 characters' })
     }
 
-    // Verify target user is a member of the same family
-    const [member] = await db`
-      select fm.user_id from family_members fm
-      where fm.user_id = ${userId} and fm.family_id = ${familyId} and fm.status = 'active'
-    `
-    if (!member) {
-      return reply.status(404).send({ error: 'member_not_found', message: 'User is not an active member of your family' })
+    // Verify target user exists (sys_admin can edit any user; regular admin scoped to family)
+    const { isSuperAdmin: callerIsSuperAdmin } = request.user as any
+    if (callerIsSuperAdmin) {
+      const [userExists] = await db`select id from users where id = ${userId}`
+      if (!userExists) {
+        return reply.status(404).send({ error: 'member_not_found', message: 'User not found' })
+      }
+    } else {
+      const [member] = await db`
+        select fm.user_id from family_members fm
+        where fm.user_id = ${userId} and fm.family_id = ${familyId} and fm.status = 'active'
+      `
+      if (!member) {
+        return reply.status(404).send({ error: 'member_not_found', message: 'User is not an active member of your family' })
+      }
     }
 
     const hash = await bcrypt.hash(password, 12)
