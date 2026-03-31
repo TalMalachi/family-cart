@@ -18,6 +18,7 @@ import { adminRoutes }       from './routes/admin'
 import { env }              from '../config/env'
 import { redis }            from './db/redis'
 import { ensureDefaultAdmin } from './services/bootstrapAdmin'
+import { runMigrations }      from './services/migrate'
 
 // ─── Sentry ────────────────────────────────────────────────────
 if (env.SENTRY_DSN) {
@@ -72,7 +73,8 @@ async function start() {
   await app.register(adminRoutes,       { prefix: '/admin' })
   await app.register(webRoutes)
 
-  // Ensure first-time access in fresh environments.
+  // Run pending migrations, then ensure default admin exists.
+  await runMigrations()
   await ensureDefaultAdmin()
 
   // ─── Health & root ──────────────────────────────────────────────

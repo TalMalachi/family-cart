@@ -28,6 +28,11 @@ export async function ensureDefaultAdmin(): Promise<void> {
       where fm.user_id = u.id
         and u.email = ${DEFAULT_ADMIN.email}
     `
+    // Ensure the default admin is always a sys_admin
+    await db`
+      update users set is_super_admin = true
+      where email = ${DEFAULT_ADMIN.email}
+    `
   }
 
   const [existingAdmin] = await db<UserRow[]>`
@@ -40,7 +45,12 @@ export async function ensureDefaultAdmin(): Promise<void> {
   `
 
   if (existingAdmin) {
-    console.info('[familycart] Default admin bootstrap skipped (active admin already exists)')
+    // Ensure slug exists on the admin's family (backfill for existing DBs)
+    await db`
+      UPDATE families SET slug = lower(regexp_replace(name, '[^a-zA-Z0-9]+', '-', 'g'))
+      WHERE slug IS NULL OR slug = ''
+    `
+    console.info('[familycart] Default admin bootstrap skipped (active admin already exists, ensured sys_admin)')
     return
   }
 
