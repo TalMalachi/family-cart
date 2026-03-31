@@ -10,6 +10,9 @@ export async function webRoutes(app: FastifyInstance) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FamilyCart</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
     :root{--c-primary:#6C5CE7;--c-primary-dark:#5A4BD1;--c-primary-light:#F0EDFF;--c-pink:#E84393;--c-coral:#FF6B6B;--c-orange:#FF922B;--c-gold:#FDCB6E;--c-green:#00B894;--c-cyan:#00CEC9;--c-blue:#0984E3;--c-blue-light:#E0F0FF;--c-amber:#FF922B;--c-danger:#FF6B6B;--c-danger-light:#FFE8E8;--c-bg:#F0EDFF;--c-card:rgba(255,255,255,.65);--c-card-solid:#FFFFFF;--c-bg2:rgba(255,255,255,.45);--c-border:rgba(255,255,255,.4);--c-border2:rgba(108,92,231,.12);--c-text:#1A1A2E;--c-text2:#7C7C95;--c-text3:#94A3B8;--radius-sm:10px;--radius-md:14px;--radius-lg:20px;--radius-xl:28px;--shadow-sm:0 2px 8px rgba(108,92,231,.06);--shadow-md:0 4px 16px rgba(108,92,231,.1);--shadow-lg:0 8px 24px rgba(108,92,231,.15);--shadow-glow:0 4px 16px rgba(108,92,231,.3);--glass-blur:blur(20px)}
@@ -1767,11 +1770,19 @@ document.getElementById('findStoresBtn').onclick = () => {
 };
 
 function renderNearbyStores(result) {
-  console.log('[nearbyStores] result:', JSON.stringify(result).substring(0, 500));
+  console.log('[nearbyStores] full result:', result);
   const el = document.getElementById('nearbyStoresContent');
+  if (!result || typeof result !== 'object') {
+    el.innerHTML = '<div class="empty">Invalid response from server</div>';
+    return;
+  }
   if (!result.stores || !result.stores.length) {
     el.innerHTML = '<div class="empty">' + t('no_stores_found') + '</div>';
     return;
+  }
+  // Debug: log first store's prices
+  if (result.stores[0]) {
+    console.log('[nearbyStores] first store:', result.stores[0].name, 'itemPrices:', result.stores[0].itemPrices);
   }
 
   el.innerHTML = result.stores.map((store, idx) => {
@@ -1780,10 +1791,9 @@ function renderNearbyStores(result) {
     const medal = ['🥇', '🥈', '🥉'][idx] || '';
 
     const itemRows = store.itemPrices.map(ip => {
-      if (idx === 0) console.log('[nearbyStores] price check:', ip.name, 'estimatedPrice=', ip.estimatedPrice, 'type=', typeof ip.estimatedPrice, 'isNull=', ip.estimatedPrice === null);
-      const hasPrice = ip.estimatedPrice !== null && ip.estimatedPrice !== undefined;
-      const priceText = hasPrice
-        ? '<strong>' + ip.currency + Number(ip.estimatedPrice).toFixed(2) + '</strong>'
+      var price = parseFloat(ip.estimatedPrice);
+      var priceText = (!isNaN(price) && price > 0)
+        ? '<strong>' + (ip.currency || '₪') + price.toFixed(2) + '</strong>'
         : '<span style="color:#94a3b8">' + t('not_available') + '</span>';
       return '<tr><td style="font-size:13px">' + ip.name + '</td><td style="text-align:right;font-size:13px">' + priceText + '</td></tr>';
     }).join('');
@@ -1811,7 +1821,7 @@ function renderNearbyStores(result) {
         '</div>' +
         '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;flex:1;text-align:center">' +
           '<div style="font-size:11px;color:#64748b">' + t('estimated_total') + '</div>' +
-          '<div style="font-size:18px;font-weight:700;color:#1e40af">₪' + store.totalEstimated.toFixed(2) + '</div>' +
+          '<div style="font-size:18px;font-weight:700;color:#1e40af">₪' + (parseFloat(store.totalEstimated) || 0).toFixed(2) + '</div>' +
         '</div>' +
       '</div>' +
       '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
