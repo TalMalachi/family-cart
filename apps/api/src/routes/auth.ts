@@ -41,22 +41,26 @@ export async function authRoutes(app: FastifyInstance) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FamilyCart Login</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fb; margin: 0; }
-    .card { max-width: 420px; margin: 64px auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-    h1 { margin: 0 0 16px; font-size: 22px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #4a1a2e 0%, #7f1d3b 50%, #a8324e 100%); margin: 0; min-height: 100vh; }
+    .card { max-width: 420px; margin: 64px auto; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 16px 48px rgba(0,0,0,0.2); }
+    h1 { margin: 0 0 4px; font-size: 22px; color: #4a1a2e; }
+    .subtitle { margin: 0 0 20px; font-size: 13px; color: #e84393; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     label { display: block; margin: 12px 0 6px; font-size: 14px; color: #334155; }
     input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-    button { width: 100%; margin-top: 16px; padding: 11px 12px; border: 0; border-radius: 8px; background: #0f766e; color: #fff; font-weight: 600; cursor: pointer; }
+    button { width: 100%; margin-top: 16px; padding: 11px 12px; border: 0; border-radius: 8px; background: linear-gradient(135deg, #e84393, #d63384); color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; }
+    button:hover { opacity: 0.95; }
     button:disabled { opacity: 0.7; cursor: not-allowed; }
-    .hint { margin-top: 10px; font-size: 12px; color: #64748b; }
     .ok, .err { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
     .ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
     .err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .back { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #94a3b8; text-decoration: none; }
+    .back:hover { color: #e84393; }
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>FamilyCart Login</h1>
+    <h1>FamilyCart</h1>
+    <p class="subtitle">Sign in to your account</p>
     <form id="loginForm">
       <label for="phoneOrEmail">Phone or email</label>
       <input id="phoneOrEmail" placeholder="admin@familycart.local" required autocomplete="username" />
@@ -70,7 +74,7 @@ export async function authRoutes(app: FastifyInstance) {
       <div id="familyPicker" style="display:none;margin-top:12px"></div>
       <div id="message"></div>
     </form>
-    <p class="hint" style="margin-top:16px;text-align:center"><a href="/auth/sys-login" style="color:#6C5CE7;text-decoration:none;font-weight:600">System Admin Login</a></p>
+    <a class="back" href="/auth/sys-login">System Admin Login &rarr;</a>
   </main>
 
   <script>
