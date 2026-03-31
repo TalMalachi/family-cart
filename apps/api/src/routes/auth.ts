@@ -118,13 +118,20 @@ export async function authRoutes(app: FastifyInstance) {
         }
 
         if (res.status === 422 && data.error === 'family_required') {
-          // Show family picker
-          const picker = document.getElementById('familyPicker');
-          picker.innerHTML = '<label style="margin:0 0 6px;display:block;font-size:14px;color:#334155">Select your family:</label>'
-            + data.families.map(f =>
-              '<button type="button" style="display:block;width:100%;margin:4px 0;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:14px;text-align:left" onclick="document.getElementById(\'familySlug\').value=\'' + f.slug + '\';document.getElementById(\'familyPicker\').style.display=\'none\';document.getElementById(\'loginForm\').requestSubmit()">'
-              + f.name + ' <span style="color:#94a3b8;font-size:12px">(' + f.slug + ')</span></button>'
-            ).join('');
+          var picker = document.getElementById('familyPicker');
+          picker.innerHTML = '<label style="margin:0 0 6px;display:block;font-size:14px;color:#334155">Select your family:</label>';
+          data.families.forEach(function(f) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.cssText = 'display:block;width:100%;margin:4px 0;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:14px;text-align:left';
+            btn.textContent = f.name + ' (' + f.slug + ')';
+            btn.onclick = function() {
+              document.getElementById('familySlug').value = f.slug;
+              picker.style.display = 'none';
+              document.getElementById('loginForm').requestSubmit();
+            };
+            picker.appendChild(btn);
+          });
           picker.style.display = 'block';
           return;
         }
