@@ -2696,7 +2696,7 @@ loadLists();
 </body>
 </html>`
 
-    return reply.type('text/html; charset=utf-8').send(html)
+    return reply.header('Cache-Control', 'no-store, no-cache, must-revalidate').type('text/html; charset=utf-8').send(html)
   })
 
 }

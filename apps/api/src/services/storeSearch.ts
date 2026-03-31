@@ -214,6 +214,8 @@ Respond with ONLY the JSON:`
     const parsed = JSON.parse(json)
     const storePrices = parsed.storePrices || parsed
 
+    console.info('[storeSearch] OpenAI response parsed, keys:', Object.keys(storePrices))
+
     const result = new Map<string, ItemPrice[]>()
 
     for (const store of stores) {
@@ -249,8 +251,9 @@ Respond with ONLY the JSON:`
     }
 
     return result
-  } catch (e) {
-    console.error('[storeSearch] Price estimation error:', e)
+  } catch (e: any) {
+    console.error('[storeSearch] Price estimation error:', e?.message || e)
+    console.error('[storeSearch] Full error:', JSON.stringify(e, Object.getOwnPropertyNames(e)).substring(0, 500))
     return new Map()
   }
 }
