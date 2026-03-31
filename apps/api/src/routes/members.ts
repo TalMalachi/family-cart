@@ -12,8 +12,8 @@ export async function membersRoutes(app: FastifyInstance) {
     const { familyId, isSuperAdmin } = request.user as any
     const qFamilyId = (request.query as any)?.familyId
     if (isSuperAdmin && !qFamilyId) {
-      // Super-admin: return all members across all families
-      return db`
+      // Super-admin: return all members across all families + sys_admin users without families
+      const familyMembers = await db`
         select fm.id, fm.role, fm.status, fm.joined_at,
                u.id as user_id, u.full_name, u.phone, u.email,
                u.must_change_password, u.is_super_admin,
@@ -23,6 +23,17 @@ export async function membersRoutes(app: FastifyInstance) {
         join families f on f.id = fm.family_id
         order by f.name, fm.joined_at asc
       `
+      // Include sys_admin users who have no family membership
+      const sysAdminsWithoutFamily = await db`
+        select null as id, 'admin' as role, 'active' as status, u.created_at as joined_at,
+               u.id as user_id, u.full_name, u.phone, u.email,
+               u.must_change_password, u.is_super_admin,
+               null as family_name, null as family_id
+        from users u
+        where u.is_super_admin = true
+          and not exists (select 1 from family_members fm where fm.user_id = u.id)
+      `
+      return [...sysAdminsWithoutFamily, ...familyMembers]
     }
     const effectiveFamilyId = (isSuperAdmin && qFamilyId) || familyId
     return db`
@@ -70,23 +81,23 @@ export async function membersRoutes(app: FastifyInstance) {
   // DELETE /members/:memberId  — remove a member from the family
   app.delete('/:memberId', { preHandler: requirePermission('mem.remove') }, async (request, reply) => {
     const { memberId } = request.params as any
-    const { familyId, id: adminId } = request.user as any
+    const { familyId, id: adminId, isSuperAdmin: callerIsSuperAdmin } = request.user as any
 
-    // Cannot remove yourself
-    const [target] = await db`
-      select user_id from family_members
-      where id = ${memberId} and family_id = ${familyId}
-    `
-    if (!target) return reply.status(404).send({ error: 'not_found' })
+    let target: any
+    if (callerIsSuperAdmin) {
+      ;[target] = await db`select user_id from family_members where id = ${memberId}`
+    } else {
+      ;[target] = await db`
+        select user_id from family_members
+        where id = ${memberId} and family_id = ${familyId}
+      `
+    }
+    if (!target) return reply.status(404).send({ error: 'member_not_found' })
     if (target.userId === adminId) {
       return reply.status(400).send({ error: 'cannot_remove_self' })
     }
 
-    await db`
-      update family_members
-      set status = 'suspended'
-      where id = ${memberId} and family_id = ${familyId}
-    `
+    await db`update family_members set status = 'suspended' where id = ${memberId}`
 
     await invalidatePermissionCache(target.userId, familyId)
     return reply.status(204).send()
@@ -95,20 +106,37 @@ export async function membersRoutes(app: FastifyInstance) {
   // PATCH /members/:memberId/profile  — edit member display name / phone / email
   app.patch('/:memberId/profile', { preHandler: requirePermission('mem.perms') }, async (request, reply) => {
     const { memberId } = request.params as any
-    const { familyId } = request.user as any
+    const { familyId, isSuperAdmin: callerIsSuperAdmin } = request.user as any
     const { fullName, phone, email } = request.body as { fullName?: string; phone?: string; email?: string }
 
     if (!fullName && !phone && !email) {
       return reply.status(400).send({ error: 'no_fields_to_update' })
     }
 
-    const [target] = await db`
-      select fm.user_id, u.full_name, u.phone, u.email
-      from family_members fm
-      join users u on u.id = fm.user_id
-      where fm.id = ${memberId} and fm.family_id = ${familyId}
-    `
-    if (!target) return reply.status(404).send({ error: 'not_found' })
+    let target: any
+    if (callerIsSuperAdmin) {
+      // sys_admin can edit any user — try family_members first, then direct user lookup
+      ;[target] = await db`
+        select fm.user_id, u.full_name, u.phone, u.email
+        from family_members fm
+        join users u on u.id = fm.user_id
+        where fm.id = ${memberId}
+      `
+      if (!target) {
+        // memberId might be a userId for sys_admin users without family membership
+        ;[target] = await db`
+          select id as user_id, full_name, phone, email from users where id = ${memberId}
+        `
+      }
+    } else {
+      ;[target] = await db`
+        select fm.user_id, u.full_name, u.phone, u.email
+        from family_members fm
+        join users u on u.id = fm.user_id
+        where fm.id = ${memberId} and fm.family_id = ${familyId}
+      `
+    }
+    if (!target) return reply.status(404).send({ error: 'member_not_found' })
 
     const updates: Record<string, string> = {}
 
@@ -157,38 +185,61 @@ export async function membersRoutes(app: FastifyInstance) {
   // PATCH /members/:memberId/role  — promote/demote role
   app.patch('/:memberId/role', { preHandler: requirePermission('mem.perms') }, async (request, reply) => {
     const { memberId } = request.params as any
-    const { familyId, id: adminId } = request.user as any
+    const { familyId, id: adminId, isSuperAdmin: callerIsSuperAdmin } = request.user as any
     const { role } = request.body as { role: 'admin' | 'member' }
 
-    const [target] = await db`
-      select user_id from family_members
-      where id = ${memberId} and family_id = ${familyId}
-    `
-    if (!target) return reply.status(404).send({ error: 'not_found' })
+    let target: any
+    if (callerIsSuperAdmin) {
+      ;[target] = await db`select user_id from family_members where id = ${memberId}`
+      if (!target) {
+        // sys_admin user without family membership — role change not applicable
+        return reply.status(400).send({ error: 'no_family_membership', message: 'sys_admin users have no family role to change' })
+      }
+    } else {
+      ;[target] = await db`
+        select user_id from family_members
+        where id = ${memberId} and family_id = ${familyId}
+      `
+    }
+    if (!target) return reply.status(404).send({ error: 'member_not_found' })
     if (target.userId === adminId) {
       return reply.status(400).send({ error: 'cannot_change_own_role' })
     }
 
-    await db`
-      update family_members set role = ${role}
-      where id = ${memberId} and family_id = ${familyId}
-    `
+    const targetFamilyId = callerIsSuperAdmin
+      ? (await db`select family_id from family_members where id = ${memberId}`)[0]?.familyId
+      : familyId
 
-    await invalidatePermissionCache(target.userId, familyId)
+    await db`update family_members set role = ${role} where id = ${memberId}`
+
+    if (targetFamilyId) await invalidatePermissionCache(target.userId, targetFamilyId)
     return reply.status(200).send({ role })
   })
 
   // GET /members/:memberId/qr  — return login QR data for a member
   app.get('/:memberId/qr', { preHandler: requirePermission('mem.perms') }, async (request, reply) => {
     const { memberId } = request.params as any
-    const { familyId } = request.user as any
+    const { familyId, isSuperAdmin: callerIsSuperAdmin } = request.user as any
 
-    const [target] = await db`
-      select u.full_name, u.phone, u.email
-      from family_members fm
-      join users u on u.id = fm.user_id
-      where fm.id = ${memberId} and fm.family_id = ${familyId}
-    `
+    let target: any
+    if (callerIsSuperAdmin) {
+      ;[target] = await db`
+        select u.full_name, u.phone, u.email
+        from family_members fm
+        join users u on u.id = fm.user_id
+        where fm.id = ${memberId}
+      `
+      if (!target) {
+        ;[target] = await db`select full_name, phone, email from users where id = ${memberId}`
+      }
+    } else {
+      ;[target] = await db`
+        select u.full_name, u.phone, u.email
+        from family_members fm
+        join users u on u.id = fm.user_id
+        where fm.id = ${memberId} and fm.family_id = ${familyId}
+      `
+    }
     if (!target) return reply.status(404).send({ error: 'not_found' })
 
     // QR login uses the member's email as the pre-filled identity
@@ -226,7 +277,7 @@ export async function membersRoutes(app: FastifyInstance) {
   // PATCH /members/:memberId/status  — admin updates member lifecycle status
   app.patch('/:memberId/status', { preHandler: requirePermission('mem.perms') }, async (request, reply) => {
     const { memberId } = request.params as any
-    const { familyId, id: adminId } = request.user as any
+    const { familyId, id: adminId, isSuperAdmin: callerIsSuperAdmin } = request.user as any
     const { status } = request.body as { status: 'register' | 'active' | 'suspended' | 'deleted' }
 
     const allowed = new Set(['register', 'active', 'suspended', 'deleted'])
@@ -234,23 +285,30 @@ export async function membersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid_status' })
     }
 
-    const [target] = await db`
-      select user_id from family_members
-      where id = ${memberId} and family_id = ${familyId}
-    `
-    if (!target) return reply.status(404).send({ error: 'not_found' })
+    let target: any
+    if (callerIsSuperAdmin) {
+      ;[target] = await db`select user_id from family_members where id = ${memberId}`
+      if (!target) {
+        return reply.status(400).send({ error: 'no_family_membership', message: 'sys_admin users have no family membership status' })
+      }
+    } else {
+      ;[target] = await db`
+        select user_id from family_members
+        where id = ${memberId} and family_id = ${familyId}
+      `
+    }
+    if (!target) return reply.status(404).send({ error: 'member_not_found' })
 
-    // Avoid locking yourself out by mistake.
     if (target.userId === adminId && status !== 'active') {
       return reply.status(400).send({ error: 'cannot_change_own_status' })
     }
 
-    await db`
-      update family_members set status = ${status}
-      where id = ${memberId} and family_id = ${familyId}
-    `
+    await db`update family_members set status = ${status} where id = ${memberId}`
 
-    await invalidatePermissionCache(target.userId, familyId)
+    const targetFamilyId = callerIsSuperAdmin
+      ? (await db`select family_id from family_members where id = ${memberId}`)[0]?.familyId
+      : familyId
+    if (targetFamilyId) await invalidatePermissionCache(target.userId, targetFamilyId)
     return reply.status(200).send({ status })
   })
 }

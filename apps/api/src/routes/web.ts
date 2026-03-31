@@ -2249,7 +2249,7 @@ async function loadMembers() {
             <div class="member-contact">\${_or(m.phone, '')} \${m.phone && m.email ? '&nbsp;&middot;&nbsp;' : ''} \${_or(m.email, '')}</div>
           </div>
           \${isAdmin ? \`
-            <select onchange="updateMemberStatus('\${m.id}', this.value)">
+            <select onchange="updateMemberStatus('\${_or(m.id, m.userId)}', this.value)">
               <option value="active" \${m.status === 'active' ? 'selected' : ''}>Active</option>
               <option value="register" \${m.status === 'register' ? 'selected' : ''}>Register</option>
               <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>Suspended</option>
@@ -2269,14 +2269,14 @@ async function loadMembers() {
         \${isAdmin ? \`
         <div class="member-actions">
           <button class="btn btn-light"
-            onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${isSelf}, '\${m.userId}', \${!!m.isSuperAdmin}, '\${_or(m.familyId, '')}')">Edit</button>
-          <button class="btn-qr" onclick="showMemberQR('\${m.id}')">QR Login</button>
+            onclick="openEditMember('\${_or(m.id, m.userId)}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${isSelf}, '\${m.userId}', \${!!m.isSuperAdmin}, '\${_or(m.familyId, '')}')">Edit</button>
+          <button class="btn-qr" onclick="showMemberQR('\${_or(m.id, m.userId)}')">QR Login</button>
           \${m.mustChangePassword ? \`
             <button class="btn btn-whatsapp" style="font-size:12px;padding:6px 12px"
               onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">Resend Invite</button>
           \` : ''}
           \${!isSelf ? \`
-            <button class="btn btn-danger" onclick="removeMember('\${m.id}')">Remove</button>
+            <button class="btn btn-danger" onclick="removeMember('\${_or(m.id, m.userId)}')">Remove</button>
           \` : ''}
         </div>
         \` : ''}
