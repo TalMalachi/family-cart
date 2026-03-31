@@ -77,19 +77,27 @@ async function findNearbyStores(
   `
 
   let data: any
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const overpassUrls = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ]
+  for (let attempt = 0; attempt < 4; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(30000),
-    })
-    if (res.ok) { data = await res.json(); break }
-    if (res.status !== 429 && res.status !== 504) throw new Error(`Overpass API error: ${res.status}`)
-    console.warn(`[storeSearch] Overpass returned ${res.status}, retry ${attempt + 1}/3`)
+    const url = overpassUrls[attempt % overpassUrls.length]
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(45000),
+      })
+      if (res.ok) { data = await res.json(); break }
+      console.warn(`[storeSearch] Overpass ${url} returned ${res.status}, retry ${attempt + 1}/4`)
+    } catch (e: any) {
+      console.warn(`[storeSearch] Overpass ${url} failed: ${e.message}, retry ${attempt + 1}/4`)
+    }
   }
-  if (!data) throw new Error('Overpass API unavailable after 3 retries')
+  if (!data) throw new Error('Supermarket search service is temporarily unavailable. Please try again in a moment.')
 
   const raw: OsmStore[] = []
   const seenOsmIds = new Set<string>()

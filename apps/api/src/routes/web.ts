@@ -1193,7 +1193,7 @@ async function api(method, path, body) {
   });
   if (res.status === 204) return {};
   const data = await res.json();
-  if (!res.ok) throw new Error(_or(data.error, _or(data.message, 'Error')));
+  if (!res.ok) throw new Error(_or(data.message, _or(data.error, 'Error')));
   return data;
 }
 
@@ -1666,7 +1666,11 @@ document.getElementById('findStoresBtn').onclick = () => {
     }).then(function(result) {
       renderNearbyStores(result);
     }).catch(function(e) {
-      content.innerHTML = '<div class="empty">' + (e.message) + '</div>';
+      content.innerHTML = '<div style="padding:16px;text-align:center">' +
+        '<p style="font-size:14px;color:#b91c1c;margin-bottom:12px">Search failed: ' + (e.message || 'Unknown error') + '</p>' +
+        '<button class="btn btn-primary" style="margin-bottom:10px" onclick="onLocationSuccess({coords:{latitude:' + pos.coords.latitude + ',longitude:' + pos.coords.longitude + '}})">Try again</button>' +
+        '<p style="font-size:12px;color:#94a3b8">If the problem persists, try a different location.</p>' +
+        '</div>';
     });
   }
 
