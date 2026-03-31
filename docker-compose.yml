@@ -111,6 +111,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "3000:3000"
+      - "3443:3443"
     volumes:
       # Hot-reload source in dev (comment out for pure production image)
       - ./apps/api/src:/app/src:ro

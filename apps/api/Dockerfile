@@ -20,6 +20,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install openssl for self-signed HTTPS cert generation
+RUN apk add --no-cache openssl
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
     adduser  -u 1001 -S appuser -G appgroup
@@ -37,7 +40,7 @@ COPY --chown=appuser:appgroup scripts/ ./scripts/
 
 USER appuser
 
-EXPOSE 3000
+EXPOSE 3000 3443
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/health || exit 1

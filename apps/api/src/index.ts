@@ -1,3 +1,5 @@
+import * as fs from 'fs'
+import * as childProcess from 'child_process'
 import Fastify from 'fastify'
 import fjwt from '@fastify/jwt'
 import fcors from '@fastify/cors'
@@ -100,8 +102,53 @@ async function start() {
     }
   })
 
-  // ─── Start ──────────────────────────────────────────────────────
+  // ─── Start HTTP ─────────────────────────────────────────────────
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
+
+  // ─── Start HTTPS (for geolocation support) ─────────────────────
+  try {
+    const certDir = '/tmp/certs'
+    const keyPath = `${certDir}/key.pem`
+    const certPath = `${certDir}/cert.pem`
+    if (!fs.existsSync(certPath)) {
+      fs.mkdirSync(certDir, { recursive: true })
+      childProcess.execSync(
+        `openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 365 -nodes -subj "/CN=familycart"`,
+        { stdio: 'pipe' }
+      )
+      console.info('[https] Self-signed certificate generated')
+    }
+    const httpsApp = Fastify({
+      logger: { level: env.LOG_LEVEL },
+      https: { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) },
+    })
+    // Redirect all HTTPS requests to the HTTP app
+    httpsApp.all('/*', async (request, reply) => {
+      const url = `http://127.0.0.1:${env.PORT}${request.url}`
+      const headers: Record<string, string> = { 'x-forwarded-proto': 'https' }
+      for (const [k, v] of Object.entries(request.headers)) {
+        if (typeof v === 'string') headers[k] = v
+      }
+      const res = await fetch(url, {
+        method: request.method,
+        headers,
+        body: ['GET', 'HEAD'].includes(request.method) ? undefined : JSON.stringify(request.body),
+      })
+      reply.status(res.status)
+      for (const [k, v] of res.headers.entries()) {
+        if (!['transfer-encoding', 'content-encoding', 'connection'].includes(k.toLowerCase())) {
+          reply.header(k, v)
+        }
+      }
+      const body = await res.text()
+      return reply.send(body)
+    })
+    const httpsPort = Number(env.PORT) + 443 // 3443
+    await httpsApp.listen({ port: httpsPort, host: '0.0.0.0' })
+    console.info(`[https] HTTPS proxy listening on port ${httpsPort} (accept the self-signed cert warning in your browser)`)
+  } catch (err) {
+    console.warn('[https] Could not start HTTPS proxy (geolocation will use manual input):', (err as Error).message)
+  }
 }
 
 start().catch(err => {
