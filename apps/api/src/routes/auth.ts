@@ -379,10 +379,26 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: 'invalid_credentials' })
     }
 
-    // Load family context — scoped by slug if provided
+    // sys_admin doesn't need a family membership
+    if (user.isSuperAdmin) {
+      const token = app.jwt.sign(
+        {
+          id:       user.id,
+          familyId: null,
+          familySlug: null,
+          fullName: user.fullName,
+          role:     'admin',
+          isSuperAdmin: true,
+          mustChangePassword: user.mustChangePassword,
+        },
+        { expiresIn: '7d' }
+      )
+      return { token, mustChangePassword: user.mustChangePassword }
+    }
+
+    // Load family context for regular users
     let membership: any
     if (body.familySlug) {
-      // Specific family requested
       ;[membership] = await db`
         select fm.family_id, fm.role, f.slug as family_slug, f.name as family_name
         from family_members fm
@@ -395,7 +411,6 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.status(403).send({ error: 'not_family_member', message: 'You are not a member of this family' })
       }
     } else {
-      // No slug — check how many families the user belongs to
       const memberships = await db`
         select fm.family_id, fm.role, f.slug as family_slug, f.name as family_name
         from family_members fm
@@ -404,17 +419,15 @@ export async function authRoutes(app: FastifyInstance) {
         order by fm.joined_at asc
       `
       if (memberships.length === 0) {
-        return reply.status(403).send({ error: 'account_inactive', message: 'Only active members can login' })
+        return reply.status(403).send({ error: 'account_inactive', message: 'No active family membership' })
       }
-      if (memberships.length > 1 && !user.isSuperAdmin) {
-        // Regular user belongs to multiple families — require selection
+      if (memberships.length > 1) {
         return reply.status(422).send({
           error: 'family_required',
           message: 'Please select a family to log into',
           families: memberships.map((m: any) => ({ slug: m.familySlug, name: m.familyName })),
         })
       }
-      // Super-admin just uses first membership (they can see all families anyway)
       membership = memberships[0]
     }
 
@@ -425,7 +438,7 @@ export async function authRoutes(app: FastifyInstance) {
         familySlug: membership.familySlug,
         fullName: user.fullName,
         role:     membership.role,
-        isSuperAdmin: user.isSuperAdmin,
+        isSuperAdmin: false,
         mustChangePassword: user.mustChangePassword,
       },
       { expiresIn: '7d' }

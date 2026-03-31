@@ -59,6 +59,29 @@ export async function adminRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // DELETE /admin/families/:id — delete a family (super-admin only)
+  app.delete('/families/:id', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { id } = request.params as any
+
+    const [family] = await db`select * from families where id = ${id}`
+    if (!family) return reply.status(404).send({ error: 'not_found' })
+
+    // Check if family still has active members
+    const [{ count }] = await db`
+      select count(*)::int as count from family_members
+      where family_id = ${id} and status = 'active'
+    `
+    if (count > 0) {
+      return reply.status(400).send({
+        error: 'family_has_members',
+        message: `Cannot delete family with ${count} active member(s). Move or remove them first.`,
+      })
+    }
+
+    await db`delete from families where id = ${id}`
+    return reply.status(204).send()
+  })
+
   // PATCH /admin/members/:memberId/family — move a member to a different family (super-admin only)
   app.patch('/members/:memberId/family', { preHandler: requireSuperAdmin }, async (request, reply) => {
     const { memberId } = request.params as any

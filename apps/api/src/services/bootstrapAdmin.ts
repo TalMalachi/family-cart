@@ -87,19 +87,16 @@ export async function ensureDefaultAdmin(): Promise<void> {
     await db`update users set is_super_admin = true where id = ${userId}`
   }
 
-  const familySlug = DEFAULT_ADMIN.familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  const [family] = await db<FamilyRow[]>`
-    insert into families (name, slug, created_by)
-    values (${DEFAULT_ADMIN.familyName}, ${familySlug}, ${userId})
-    returning id
-  `
-
-  await db`
-    insert into family_members (user_id, family_id, role, status)
-    values (${userId}, ${family.id}, 'admin', 'active')
-    on conflict (user_id, family_id)
-    do update set role = 'admin', status = 'active'
-  `
+  // sys_admin does not belong to any family — they manage all families.
+  // Create a default family for regular users only if no families exist yet.
+  const [anyFamily] = await db<FamilyRow[]>`select id from families limit 1`
+  if (!anyFamily) {
+    const familySlug = DEFAULT_ADMIN.familyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    await db`
+      insert into families (name, slug, created_by)
+      values (${DEFAULT_ADMIN.familyName}, ${familySlug}, ${userId})
+    `
+  }
 
   console.warn(
     '[familycart] Created default admin user for first login',

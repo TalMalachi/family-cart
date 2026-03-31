@@ -155,6 +155,27 @@ export async function webRoutes(app: FastifyInstance) {
     .amount{font-weight:700;color:var(--c-primary)}
     /* LOADING */
     .loading{padding:40px;text-align:center;color:var(--c-text3);font-weight:500}
+    /* MEMBER CARDS */
+    .member-card{background:var(--c-card-solid);border:1px solid var(--c-border2);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:10px;transition:all .2s;cursor:default}
+    .member-card:hover{box-shadow:var(--shadow-sm);border-color:rgba(108,92,231,.18)}
+    .member-header{display:flex;align-items:center;gap:12px}
+    .member-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0}
+    .member-info{flex:1;min-width:0}
+    .member-name{font-size:14px;font-weight:700;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .member-contact{font-size:12px;color:var(--c-text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .member-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+    .member-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--c-border)}
+    .member-actions .btn,.member-actions .btn-qr,.member-actions select{font-size:12px;padding:6px 12px}
+    /* EDIT MODAL SECTIONS */
+    .edit-section{margin-bottom:16px}
+    .edit-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--c-primary);margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--c-primary-light)}
+    .edit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .edit-row.single{grid-template-columns:1fr}
+    .edit-field label{margin:0 0 4px;font-size:11px}
+    .edit-field input,.edit-field select{margin-bottom:0}
+    .toggle-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--c-primary-light);border-radius:var(--radius-sm);margin-top:6px}
+    .toggle-row input[type=checkbox]{width:auto;margin:0}
+    .toggle-row span{font-size:13px;font-weight:600;color:var(--c-primary-dark)}
     /* CATEGORY PICKER */
     .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
     .cat-chip{display:flex;flex-direction:column;align-items:center;gap:5px;padding:14px 10px;border:2px solid var(--c-border2);border-radius:var(--radius-md);cursor:pointer;background:rgba(255,255,255,.5);backdrop-filter:blur(12px);transition:all .3s cubic-bezier(.34,1.56,.64,1);font-size:12px;font-weight:700;color:#475569}
@@ -561,24 +582,47 @@ export async function webRoutes(app: FastifyInstance) {
 </div>
 
 <div class="overlay" id="inviteMemberModal">
-  <div class="modal">
-    <h3 data-t="invite_member_modal">Invite Member</h3>
-    <label>Full Name <span style="color:#ef4444">*</span></label>
-    <input id="inviteFullName" placeholder="e.g. John Doe" />
-    <label>Phone <span style="color:#ef4444">*</span></label>
-    <input id="invitePhone" placeholder="e.g. +972501234567" />
-    <label>Email <span style="color:#ef4444">*</span></label>
-    <input id="inviteEmail" type="email" placeholder="e.g. member@example.com" />
-    <label>Role</label>
-    <select id="inviteRole">
-      <option value="member">Member</option>
-      <option value="admin">Admin</option>
-    </select>
-    <div class="super-only" style="margin-top:8px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
-        <input type="checkbox" id="inviteSysAdmin" style="width:auto" /> Promote to System Admin
-      </label>
+  <div class="modal" style="max-width:520px">
+    <h3 data-t="invite_member_modal" style="margin-bottom:16px">Invite Member</h3>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Details</div>
+      <div class="edit-row single">
+        <div class="edit-field">
+          <label>Full Name <span style="color:#ef4444">*</span></label>
+          <input id="inviteFullName" placeholder="John Doe" />
+        </div>
+      </div>
+      <div class="edit-row">
+        <div class="edit-field">
+          <label>Phone <span style="color:#ef4444">*</span></label>
+          <input id="invitePhone" placeholder="+972501234567" />
+        </div>
+        <div class="edit-field">
+          <label>Email <span style="color:#ef4444">*</span></label>
+          <input id="inviteEmail" type="email" placeholder="member@example.com" />
+        </div>
+      </div>
     </div>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Role</div>
+      <div class="edit-row single">
+        <div class="edit-field">
+          <select id="inviteRole">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="super-only">
+        <div class="toggle-row">
+          <input type="checkbox" id="inviteSysAdmin" />
+          <span>Promote to System Admin</span>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-light" data-close="inviteMemberModal">Cancel</button>
       <button class="btn btn-primary" id="sendInviteBtn">Send Invite</button>
@@ -587,33 +631,64 @@ export async function webRoutes(app: FastifyInstance) {
 </div>
 
 <div class="overlay" id="editMemberModal">
-  <div class="modal">
-    <h3 data-t="edit_member">Edit Member</h3>
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <h3 data-t="edit_member" style="margin-bottom:16px">Edit Member</h3>
     <input type="hidden" id="editMemberId" />
-    <label>Display Name</label>
-    <input id="editMemberName" />
-    <label>Phone</label>
-    <input id="editMemberPhone" placeholder="e.g. +972501234567" />
-    <label>Email</label>
-    <input id="editMemberEmail" type="email" placeholder="e.g. member@example.com" />
-    <label>Role</label>
-    <select id="editMemberRole">
-      <option value="member">Member</option>
-      <option value="admin">Admin</option>
-    </select>
-    <div class="super-only" style="margin-top:8px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
-        <input type="checkbox" id="editMemberSysAdmin" style="width:auto" /> System Admin
-      </label>
-    </div>
-    <div class="super-only">
-      <label>Family</label>
-      <select id="editMemberFamily"></select>
-    </div>
-    <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0" />
-    <label>New Password <span style="font-weight:400;color:#94a3b8">(leave empty to keep current)</span></label>
-    <input id="editMemberPassword" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
     <input type="hidden" id="editMemberUserId" />
+
+    <div class="edit-section">
+      <div class="edit-section-title">Profile</div>
+      <div class="edit-row single">
+        <div class="edit-field">
+          <label>Display Name</label>
+          <input id="editMemberName" placeholder="Full name" />
+        </div>
+      </div>
+      <div class="edit-row">
+        <div class="edit-field">
+          <label>Phone</label>
+          <input id="editMemberPhone" placeholder="+972501234567" />
+        </div>
+        <div class="edit-field">
+          <label>Email</label>
+          <input id="editMemberEmail" type="email" placeholder="member@example.com" />
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Role &amp; Access</div>
+      <div class="edit-row">
+        <div class="edit-field">
+          <label>Role</label>
+          <select id="editMemberRole">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="edit-field super-only">
+          <label>Family</label>
+          <select id="editMemberFamily"></select>
+        </div>
+      </div>
+      <div class="super-only">
+        <div class="toggle-row">
+          <input type="checkbox" id="editMemberSysAdmin" />
+          <span>System Admin (manages all families)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-section">
+      <div class="edit-section-title">Security</div>
+      <div class="edit-row single">
+        <div class="edit-field">
+          <label>New Password <span style="font-weight:400;color:#94a3b8">(leave empty to keep current)</span></label>
+          <input id="editMemberPassword" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
+        </div>
+      </div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-light" data-close="editMemberModal">Cancel</button>
       <button class="btn btn-primary" id="saveMemberEditBtn">Save Changes</button>
@@ -1243,14 +1318,17 @@ async function loadFamilies() {
     const grid = document.getElementById('familiesGrid');
     if (!families.length) { grid.innerHTML = '<div class="empty">No families</div>'; return; }
     grid.innerHTML = families.map(f => \`
-      <div class="card">
+      <div class="card" style="cursor:default">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <h3 style="flex:1">\${f.name}</h3>
-          <button class="item-del" title="Rename" onclick="event.stopPropagation();renameFamily('\${f.id}', '\${f.name.replace(/'/g,'&apos;')}')" style="color:#6C5CE7;font-size:14px;padding:2px 4px">&#9998;</button>
+          <h3 style="flex:1;margin-bottom:6px">\${f.name}</h3>
+          <div style="display:flex;gap:4px">
+            <button class="item-del" title="Rename" onclick="event.stopPropagation();renameFamily('\${f.id}', '\${f.name.replace(/'/g,'&apos;')}')" style="color:#6C5CE7;font-size:14px;padding:2px 4px">&#9998;</button>
+            \${f.memberCount === 0 ? \`<button class="item-del" title="Delete" onclick="event.stopPropagation();deleteFamily('\${f.id}', '\${f.name.replace(/'/g,'&apos;')}')" style="color:#b91c1c;font-size:14px;padding:2px 4px">&#128465;</button>\` : ''}
+          </div>
         </div>
-        <div class="meta" style="margin-bottom:4px">Slug: <b>\${f.slug}</b></div>
-        <div class="meta">\${f.memberCount} members &nbsp;·&nbsp; \${f.listCount} lists</div>
-        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <div class="meta" style="margin-bottom:2px">Slug: <b>\${f.slug}</b></div>
+        <div class="meta" style="margin-bottom:8px">\${f.memberCount} members &nbsp;·&nbsp; \${f.listCount} lists</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-light" style="font-size:12px;padding:6px 12px" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('lists');loadLists();">View lists</button>
           <button class="btn btn-light" style="font-size:12px;padding:6px 12px" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('members');loadMembers();">View members</button>
         </div>
@@ -1277,6 +1355,15 @@ async function renameFamily(familyId, currentName) {
   try {
     await api('PATCH', '/admin/families/' + familyId, { name: newName.trim() });
     toast('Family renamed');
+    loadFamilies();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteFamily(familyId, familyName) {
+  if (!confirm('Permanently delete "' + familyName + '"?\\nThis family must have no active members.')) return;
+  try {
+    await api('DELETE', '/admin/families/' + familyId);
+    toast('Family deleted');
     loadFamilies();
   } catch (e) { toast(e.message, true); }
 }
@@ -2147,48 +2234,54 @@ async function loadMembers() {
     const isAdmin = currentUser.role === 'admin' || isSuperAdmin;
     if (!members.length) { el.innerHTML = '<div class="empty">' + t('no_members') + '</div>'; return; }
 
-    el.innerHTML = members.map(m => \`
-      <div class="card" style="cursor:default;padding:16px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:180px">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-              <strong style="font-size:15px">\${m.fullName}</strong>
-              <span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span>
-              \${m.isSuperAdmin ? '<span class="badge" style="background:#EDE9FE;color:#7C3AED">sys_admin</span>' : ''}
-              <span class="badge badge-\${m.status}">\${m.status}</span>
-            </div>
-            <div style="font-size:12px;color:var(--c-text2);display:flex;flex-wrap:wrap;gap:12px;margin-top:4px">
-              <span>\${_or(m.phone, '-')}</span>
-              <span>\${_or(m.email, '-')}</span>
-              <span>Joined \${new Date(m.joinedAt).toLocaleDateString()}</span>
-            </div>
-            \${isSuperAdmin && m.familyName ? '<div style="font-size:11px;color:#6C5CE7;font-weight:600;margin-top:4px">&#127968; ' + m.familyName + '</div>' : ''}
+    const colors = ['#6C5CE7','#E84393','#FF6B6B','#FF922B','#00B894','#0984E3','#FDCB6E','#00CEC9'];
+    el.innerHTML = members.map((m, i) => {
+      const initials = (m.fullName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+      const bg = colors[i % colors.length];
+      const isSelf = m.userId === currentUser.id;
+      return \`
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-avatar" style="background:\${bg}">\${initials}</div>
+          <div class="member-info">
+            <div class="member-name">\${m.fullName}\${isSelf ? ' <span style="font-size:11px;color:var(--c-text3);font-weight:400">(you)</span>' : ''}</div>
+            <div class="member-contact">\${_or(m.phone, '')} \${m.phone && m.email ? '&nbsp;&middot;&nbsp;' : ''} \${_or(m.email, '')}</div>
           </div>
           \${isAdmin ? \`
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            \${isAdmin ? \`
-              <select style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;min-width:90px"
-                onchange="updateMemberStatus('\${m.id}', this.value)">
-                <option value="register" \${m.status === 'register' ? 'selected' : ''}>register</option>
-                <option value="active" \${m.status === 'active' ? 'selected' : ''}>active</option>
-                <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>suspended</option>
-                <option value="deleted" \${m.status === 'deleted' ? 'selected' : ''}>deleted</option>
-              </select>
-            \` : ''}
-            <button class="btn-qr" style="font-size:11px;padding:5px 8px" onclick="showMemberQR('\${m.id}')">📱 QR</button>
-            <button class="btn btn-light" style="font-size:11px;padding:5px 10px"
-              onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}', \${!!m.isSuperAdmin}, '\${_or(m.familyId, '')}')">Edit</button>
-            \${m.mustChangePassword ? \`
-              <button class="btn" style="font-size:11px;padding:5px 10px;background:#25D366;color:#fff;border:none;border-radius:6px;cursor:pointer"
-                onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">Resend</button>
-            \` : ''}
-            <button class="btn btn-danger" style="font-size:11px;padding:5px 10px"
-              onclick="removeMember('\${m.id}')">Remove</button>
-          </div>
+            <select style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;font-weight:600;background:#fff"
+              onchange="updateMemberStatus('\${m.id}', this.value)">
+              <option value="active" \${m.status === 'active' ? 'selected' : ''}>Active</option>
+              <option value="register" \${m.status === 'register' ? 'selected' : ''}>Register</option>
+              <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>Suspended</option>
+              <option value="deleted" \${m.status === 'deleted' ? 'selected' : ''}>Deleted</option>
+            </select>
           \` : ''}
         </div>
-      </div>
-    \`).join('');
+
+        <div class="member-badges">
+          <span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span>
+          \${m.isSuperAdmin ? '<span class="badge" style="background:#EDE9FE;color:#7C3AED">sys_admin</span>' : ''}
+          \${isSuperAdmin && m.familyName ? '<span class="badge" style="background:#E0F0FF;color:#0984E3">' + m.familyName + '</span>' : ''}
+          \${m.mustChangePassword ? '<span class="badge" style="background:#FFF0DB;color:#FF922B">Pending invite</span>' : ''}
+          <span style="font-size:11px;color:var(--c-text3);margin-left:auto">Joined \${new Date(m.joinedAt).toLocaleDateString()}</span>
+        </div>
+
+        \${isAdmin ? \`
+        <div class="member-actions">
+          <button class="btn btn-light"
+            onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${isSelf}, '\${m.userId}', \${!!m.isSuperAdmin}, '\${_or(m.familyId, '')}')">Edit</button>
+          <button class="btn-qr" onclick="showMemberQR('\${m.id}')">QR Login</button>
+          \${m.mustChangePassword ? \`
+            <button class="btn btn-whatsapp" style="font-size:12px;padding:6px 12px"
+              onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">Resend Invite</button>
+          \` : ''}
+          \${!isSelf ? \`
+            <button class="btn btn-danger" onclick="removeMember('\${m.id}')">Remove</button>
+          \` : ''}
+        </div>
+        \` : ''}
+      </div>\`;
+    }).join('');
   } catch (e) { el.innerHTML = '<div class="empty">' + t('failed_load_members') + '</div>'; toast(e.message, true); }
 }
 

@@ -97,6 +97,64 @@ export async function runMigrations(): Promise<void> {
       }
     }
 
+    // ─── Malachi family migration ──────────────────────────────────
+    // Create "Malachi" family if it doesn't exist, move all non-sys_admin
+    // users to it, and remove sys_admin users from family_members.
+    const [malachiDone] = await db`
+      SELECT 1 FROM families WHERE slug = 'malachi'
+    `
+    if (!malachiDone) {
+      console.info('[migrate] Creating Malachi family and reorganizing memberships')
+
+      // 1. Create Malachi family
+      const [malachi] = await db`
+        INSERT INTO families (name, slug) VALUES ('Malachi', 'malachi') RETURNING id
+      `
+
+      // 2. Move all non-sys_admin active members to Malachi family
+      //    (users who are NOT is_super_admin)
+      const nonSuperUsers = await db`
+        SELECT DISTINCT fm.user_id, fm.role
+        FROM family_members fm
+        JOIN users u ON u.id = fm.user_id
+        WHERE u.is_super_admin = false
+      `
+      for (const u of nonSuperUsers) {
+        // Upsert into Malachi family
+        await db`
+          INSERT INTO family_members (user_id, family_id, role, status)
+          VALUES (${u.userId}, ${malachi.id}, ${u.role}, 'active')
+          ON CONFLICT (user_id, family_id) DO UPDATE SET role = ${u.role}, status = 'active'
+        `
+      }
+
+      // 3. Remove all memberships for non-sys_admin users from other families
+      if (nonSuperUsers.length > 0) {
+        const userIds = nonSuperUsers.map((u: any) => u.userId)
+        await db`
+          DELETE FROM family_members
+          WHERE user_id = ANY(${userIds})
+            AND family_id != ${malachi.id}
+        `
+      }
+
+      // 4. Remove sys_admin users from ALL family_members
+      await db`
+        DELETE FROM family_members
+        WHERE user_id IN (SELECT id FROM users WHERE is_super_admin = true)
+      `
+
+      // 5. Reassign shopping lists from old families to Malachi for non-sys_admin users
+      //    (lists created by non-sys_admin users move to Malachi)
+      await db`
+        UPDATE shopping_lists SET family_id = ${malachi.id}
+        WHERE created_by IN (SELECT id FROM users WHERE is_super_admin = false)
+          AND family_id != ${malachi.id}
+      `
+
+      console.info('[migrate] Malachi family created, memberships reorganized')
+    }
+
     console.info('[migrate] All migrations applied')
   } catch (err) {
     console.error('[migrate] Migration error:', err)
