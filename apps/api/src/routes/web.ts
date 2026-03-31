@@ -1072,7 +1072,7 @@ api('GET', '/auth/profile').then(function(data) {
 
 document.getElementById('logoutBtn').onclick = () => {
   localStorage.removeItem('familycart_token');
-  window.location.href = '/auth/login';
+  window.location.href = isSuperAdmin ? '/auth/sys-login' : '/auth/login';
 };
 
 // ── API helper ────────────────────────────────────────────────────

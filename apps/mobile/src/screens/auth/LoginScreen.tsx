@@ -87,18 +87,6 @@ export default function LoginScreen() {
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Family name <Text style={styles.labelHint}>(optional)</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. levi-family"
-              placeholderTextColor={Colors.textTertiary}
-              value={familySlug}
-              onChangeText={t => { setFamilySlug(t); setError(''); clearFamilyOptions() }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-            />
-
             <Text style={styles.label}>Password</Text>
             <TextInput
               style={styles.input}
@@ -207,7 +195,6 @@ const styles = StyleSheet.create({
   cardTitle:    { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
   cardSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Space.xs, marginBottom: Space.xl },
   label:        { fontSize: FontSize.xs, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.xs, letterSpacing: 0.5, textTransform: 'uppercase' },
-  labelHint:    { fontWeight: FontWeight.regular as any, color: Colors.textTertiary, textTransform: 'none' as any },
   familyPicker:      { marginBottom: Space.md },
   familyPickerTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.semi, color: Colors.textSecondary, marginBottom: Space.sm },
   familyOption:      { backgroundColor: Colors.bgSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.sm, padding: Space.md, marginBottom: Space.xs },

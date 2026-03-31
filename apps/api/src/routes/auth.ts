@@ -61,17 +61,16 @@ export async function authRoutes(app: FastifyInstance) {
       <label for="phoneOrEmail">Phone or email</label>
       <input id="phoneOrEmail" name="phoneOrEmail" placeholder="admin@familycart.local" required />
 
-      <label for="familySlug">Family name <span style="color:#94a3b8;font-weight:normal">(optional)</span></label>
-      <input id="familySlug" name="familySlug" placeholder="e.g. levi-family" />
+      <input id="familySlug" type="hidden" value="" />
 
       <label for="password">Password</label>
       <input id="password" name="password" type="password" placeholder="********" required />
 
       <button id="submitBtn" type="submit">Login</button>
       <div id="familyPicker" style="display:none;margin-top:12px"></div>
-      <p class="hint">Uses POST /auth/login and returns JWT token.</p>
       <div id="message"></div>
     </form>
+    <p class="hint" style="margin-top:16px;text-align:center"><a href="/auth/sys-login" style="color:#6C5CE7;text-decoration:none;font-weight:600">System Admin Login</a></p>
   </main>
 
   <script>
@@ -96,12 +95,12 @@ export async function authRoutes(app: FastifyInstance) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Logging in...';
 
-      const familySlugVal = document.getElementById('familySlug').value.trim();
+      const familySlug = document.getElementById('familySlug').value.trim();
       const payload = {
         phoneOrEmail: document.getElementById('phoneOrEmail').value,
         password: document.getElementById('password').value,
       };
-      if (familySlugVal) payload.familySlug = familySlugVal;
+      if (familySlug) payload.familySlug = familySlug;
 
       try {
         const res = await fetch('/auth/login', {
@@ -151,6 +150,107 @@ export async function authRoutes(app: FastifyInstance) {
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Login';
+      }
+    });
+  </script>
+</body>
+</html>`
+
+    return reply.type('text/html; charset=utf-8').send(html)
+  })
+
+  // GET /auth/sys-login  (browser login page for system administrators)
+  app.get('/sys-login', async (_request, reply) => {
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FamilyCart — System Admin</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); margin: 0; min-height: 100vh; }
+    .card { max-width: 420px; margin: 64px auto; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 16px 48px rgba(0,0,0,0.2); }
+    h1 { margin: 0 0 4px; font-size: 22px; color: #1e1b4b; }
+    .subtitle { margin: 0 0 20px; font-size: 13px; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    label { display: block; margin: 12px 0 6px; font-size: 14px; color: #334155; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+    button { width: 100%; margin-top: 16px; padding: 11px 12px; border: 0; border-radius: 8px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; }
+    button:hover { opacity: 0.95; }
+    button:disabled { opacity: 0.7; cursor: not-allowed; }
+    .ok, .err { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+    .ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .back { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #94a3b8; text-decoration: none; }
+    .back:hover { color: #6366f1; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>System Admin</h1>
+    <p class="subtitle">FamilyCart Administration</p>
+    <form id="loginForm">
+      <label for="phoneOrEmail">Email</label>
+      <input id="phoneOrEmail" name="phoneOrEmail" placeholder="admin@familycart.local" required />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" placeholder="********" required />
+
+      <button id="submitBtn" type="submit">Sign in as System Admin</button>
+      <div id="message"></div>
+    </form>
+    <a class="back" href="/auth/login">&larr; Regular login</a>
+  </main>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const message = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      message.className = '';
+      message.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+
+      try {
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneOrEmail: document.getElementById('phoneOrEmail').value,
+            password: document.getElementById('password').value,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          message.className = 'err';
+          message.textContent = data.error || data.message || 'Login failed';
+          return;
+        }
+
+        // Verify the user is actually a sys_admin
+        try {
+          const payload = JSON.parse(atob(data.token.split('.')[1]));
+          if (!payload.isSuperAdmin) {
+            message.className = 'err';
+            message.textContent = 'This account is not a System Admin. Use the regular login page.';
+            return;
+          }
+        } catch { }
+
+        localStorage.setItem('familycart_token', data.token);
+        message.className = 'ok';
+        message.textContent = 'Welcome, System Admin. Redirecting...';
+        setTimeout(() => { window.location.href = '/app'; }, 400);
+      } catch (err) {
+        message.className = 'err';
+        message.textContent = 'Network error';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in as System Admin';
       }
     });
   </script>

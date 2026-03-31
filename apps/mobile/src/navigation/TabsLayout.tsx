@@ -5,7 +5,7 @@ import { useAuth }    from '../../store/auth'
 
 export default function TabsLayout() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.isSuperAdmin
 
   return (
     <Tabs
