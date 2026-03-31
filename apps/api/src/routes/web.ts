@@ -606,6 +606,10 @@ export async function webRoutes(app: FastifyInstance) {
         <input type="checkbox" id="editMemberSysAdmin" style="width:auto" /> System Admin
       </label>
     </div>
+    <div class="super-only">
+      <label>Family</label>
+      <select id="editMemberFamily"></select>
+    </div>
     <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0" />
     <label>New Password <span style="font-weight:400;color:#94a3b8">(leave empty to keep current)</span></label>
     <input id="editMemberPassword" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
@@ -2143,76 +2147,48 @@ async function loadMembers() {
     const isAdmin = currentUser.role === 'admin' || isSuperAdmin;
     if (!members.length) { el.innerHTML = '<div class="empty">' + t('no_members') + '</div>'; return; }
 
-    // For sys_admin, look up is_super_admin status per user
-    let superAdminMap = {};
-    if (isSuperAdmin) {
-      try {
-        const families = await api('GET', '/admin/families');
-        // We already have family names from members response
-      } catch {}
-    }
-
-    el.innerHTML = \`
-      <table>
-        <thead><tr>\${isSuperAdmin ? '<th>Family</th>' : ''}<th>Name</th><th>Phone</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
-        <tbody>
-          \${members.map(m => \`
-            <tr>
-              \${isSuperAdmin ? \`<td style="font-size:12px;color:#6C5CE7;font-weight:600">\${_or(m.familyName, '-')}</td>\` : ''}
-              <td><strong>\${m.fullName}</strong></td>
-              <td>\${_or(m.phone, '-')}</td>
-              <td>\${_or(m.email, '-')}</td>
-              <td>
-                <span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span>
-                \${m.isSuperAdmin ? '<span class="badge" style="background:#EDE9FE;color:#7C3AED;margin-left:4px">sys_admin</span>' : ''}
-              </td>
-              <td>
-                \${isAdmin ? \`
-                  <select
-                    style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;min-width:120px"
-                    onchange="updateMemberStatus('\${m.id}', this.value)">
-                    <option value="register" \${m.status === 'register' ? 'selected' : ''}>register</option>
-                    <option value="active" \${m.status === 'active' ? 'selected' : ''}>active</option>
-                    <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>suspended</option>
-                    <option value="deleted" \${m.status === 'deleted' ? 'selected' : ''}>deleted</option>
-                  </select>
-                \` : m.status}
-              </td>
-              <td>\${new Date(m.joinedAt).toLocaleDateString()}</td>
-              <td>
-                \${isAdmin ? \`
-                  <button
-                    class="btn-qr"
-                    onclick="showMemberQR('\${m.id}')">
-                    📱 QR
-                  </button>
-                  <button
-                    class="btn btn-light"
-                    style="font-size:12px;padding:6px 10px;margin-right:6px"
-                    onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}', \${!!m.isSuperAdmin})">
-                    Edit
-                  </button>
-                  \${m.mustChangePassword ? \`
-                  <button
-                    class="btn"
-                    style="font-size:12px;padding:6px 10px;margin-right:6px;background:#25D366;color:#fff;border:none;border-radius:6px;cursor:pointer"
-                    onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">
-                    Resend Invite
-                  </button>
-                  \` : ''}
-                  <button
-                    class="btn btn-danger"
-                    style="font-size:12px;padding:6px 10px"
-                    onclick="removeMember('\${m.id}')">
-                    Remove
-                  </button>
-                \` : '<span style="color:#94a3b8">-</span>'}
-              </td>
-            </tr>
-          \`).join('')}
-        </tbody>
-      </table>
-    \`;
+    el.innerHTML = members.map(m => \`
+      <div class="card" style="cursor:default;padding:16px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <strong style="font-size:15px">\${m.fullName}</strong>
+              <span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span>
+              \${m.isSuperAdmin ? '<span class="badge" style="background:#EDE9FE;color:#7C3AED">sys_admin</span>' : ''}
+              <span class="badge badge-\${m.status}">\${m.status}</span>
+            </div>
+            <div style="font-size:12px;color:var(--c-text2);display:flex;flex-wrap:wrap;gap:12px;margin-top:4px">
+              <span>\${_or(m.phone, '-')}</span>
+              <span>\${_or(m.email, '-')}</span>
+              <span>Joined \${new Date(m.joinedAt).toLocaleDateString()}</span>
+            </div>
+            \${isSuperAdmin && m.familyName ? '<div style="font-size:11px;color:#6C5CE7;font-weight:600;margin-top:4px">&#127968; ' + m.familyName + '</div>' : ''}
+          </div>
+          \${isAdmin ? \`
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            \${isAdmin ? \`
+              <select style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;min-width:90px"
+                onchange="updateMemberStatus('\${m.id}', this.value)">
+                <option value="register" \${m.status === 'register' ? 'selected' : ''}>register</option>
+                <option value="active" \${m.status === 'active' ? 'selected' : ''}>active</option>
+                <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>suspended</option>
+                <option value="deleted" \${m.status === 'deleted' ? 'selected' : ''}>deleted</option>
+              </select>
+            \` : ''}
+            <button class="btn-qr" style="font-size:11px;padding:5px 8px" onclick="showMemberQR('\${m.id}')">📱 QR</button>
+            <button class="btn btn-light" style="font-size:11px;padding:5px 10px"
+              onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}', \${!!m.isSuperAdmin}, '\${_or(m.familyId, '')}')">Edit</button>
+            \${m.mustChangePassword ? \`
+              <button class="btn" style="font-size:11px;padding:5px 10px;background:#25D366;color:#fff;border:none;border-radius:6px;cursor:pointer"
+                onclick="resendInvite('\${m.userId}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.fullName, ''))}')">Resend</button>
+            \` : ''}
+            <button class="btn btn-danger" style="font-size:11px;padding:5px 10px"
+              onclick="removeMember('\${m.id}')">Remove</button>
+          </div>
+          \` : ''}
+        </div>
+      </div>
+    \`).join('');
   } catch (e) { el.innerHTML = '<div class="empty">' + t('failed_load_members') + '</div>'; toast(e.message, true); }
 }
 
@@ -2301,7 +2277,7 @@ async function updateMemberStatus(memberId, status) {
   }
 }
 
-function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, userId, memberIsSuperAdmin) {
+function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, userId, memberIsSuperAdmin, memberFamilyId) {
   const selfEdit = _or(isSelf === true, isSelf === 'true');
 
   let decodedName = _or(fullName, '');
@@ -2322,11 +2298,19 @@ function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, u
   var saCb = document.getElementById('editMemberSysAdmin');
   if (saCb) {
     saCb.checked = !!memberIsSuperAdmin;
-    saCb.disabled = selfEdit; // cannot toggle own sys_admin
+    saCb.disabled = selfEdit;
+  }
+  // Populate family dropdown for sys_admin
+  var famSel = document.getElementById('editMemberFamily');
+  if (famSel && isSuperAdmin) {
+    var famOpts = document.getElementById('familySelect');
+    famSel.innerHTML = famOpts ? famOpts.innerHTML.replace('<option value="">All families</option>', '') : '';
+    famSel.value = _or(memberFamilyId, '');
   }
   const saveBtn = document.getElementById('saveMemberEditBtn');
   saveBtn.dataset.originalRole = _or(currentRole, '');
   saveBtn.dataset.originalSysAdmin = memberIsSuperAdmin ? 'true' : 'false';
+  saveBtn.dataset.originalFamilyId = _or(memberFamilyId, '');
   saveBtn.dataset.originalName = (_or(decodedName, '')).trim();
   saveBtn.dataset.originalPhone = (_or(decodedPhone, '')).trim();
   saveBtn.dataset.originalEmail = (_or(decodedEmail, '')).trim().toLowerCase();
@@ -2370,6 +2354,12 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
   const newSysAdmin = saCb ? saCb.checked : originalSysAdmin;
   const sysAdminChanged = isSuperAdmin && !isSelf && (newSysAdmin !== originalSysAdmin);
 
+  // family change
+  var famSel = document.getElementById('editMemberFamily');
+  const originalFamilyId = _or(saveBtn.dataset.originalFamilyId, '');
+  const newFamilyId = (isSuperAdmin && famSel) ? famSel.value : originalFamilyId;
+  const familyChanged = isSuperAdmin && newFamilyId && newFamilyId !== originalFamilyId;
+
   if (isSelf && roleChanged) {
     toast(t('cannot_change_own_role'), true);
   }
@@ -2379,7 +2369,7 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     return;
   }
 
-  if (!profileChanged && !roleChanged && !passwordChanged && !sysAdminChanged) {
+  if (!profileChanged && !roleChanged && !passwordChanged && !sysAdminChanged && !familyChanged) {
     toast(t('no_changes'));
     closeModal('editMemberModal');
     return;
@@ -2394,6 +2384,9 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     }
     if (sysAdminChanged && userId) {
       await api('PATCH', '/admin/users/' + userId + '/super-admin', { isSuperAdmin: newSysAdmin });
+    }
+    if (familyChanged) {
+      await api('PATCH', '/admin/members/' + memberId + '/family', { familyId: newFamilyId });
     }
     if (passwordChanged && userId) {
       await api('PUT', '/auth/admin-set-password', { userId: userId, password: newPassword });

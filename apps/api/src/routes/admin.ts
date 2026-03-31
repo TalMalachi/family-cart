@@ -59,6 +59,43 @@ export async function adminRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // PATCH /admin/members/:memberId/family — move a member to a different family (super-admin only)
+  app.patch('/members/:memberId/family', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { memberId } = request.params as any
+    const { familyId } = request.body as { familyId: string }
+
+    if (!familyId) return reply.status(400).send({ error: 'family_id_required' })
+
+    const [member] = await db`select * from family_members where id = ${memberId}`
+    if (!member) return reply.status(404).send({ error: 'member_not_found' })
+
+    const [family] = await db`select id from families where id = ${familyId}`
+    if (!family) return reply.status(404).send({ error: 'family_not_found' })
+
+    // Check if user already has a membership in the target family
+    const [existing] = await db`
+      select id from family_members
+      where user_id = ${member.userId} and family_id = ${familyId}
+    `
+    if (existing) {
+      // Update existing membership
+      await db`
+        update family_members set role = ${member.role}, status = 'active'
+        where id = ${existing.id}
+      `
+      // Remove old membership
+      await db`delete from family_members where id = ${memberId}`
+      return { memberId: existing.id, familyId }
+    }
+
+    // Move to new family
+    await db`
+      update family_members set family_id = ${familyId}
+      where id = ${memberId}
+    `
+    return { memberId, familyId }
+  })
+
   // PATCH /admin/users/:userId/super-admin — promote/demote sys_admin (super-admin only)
   app.patch('/users/:userId/super-admin', { preHandler: requireSuperAdmin }, async (request, reply) => {
     const { userId } = request.params as any
