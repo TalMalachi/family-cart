@@ -144,12 +144,14 @@ export async function runMigrations(): Promise<void> {
         WHERE user_id IN (SELECT id FROM users WHERE is_super_admin = true)
       `
 
-      // 5. Reassign shopping lists from old families to Malachi for non-sys_admin users
-      //    (lists created by non-sys_admin users move to Malachi)
+      // 5. Move ALL shopping lists and expenses to Malachi
       await db`
         UPDATE shopping_lists SET family_id = ${malachi.id}
-        WHERE created_by IN (SELECT id FROM users WHERE is_super_admin = false)
-          AND family_id != ${malachi.id}
+        WHERE family_id != ${malachi.id}
+      `
+      await db`
+        UPDATE expenses SET family_id = ${malachi.id}
+        WHERE family_id != ${malachi.id}
       `
 
       console.info('[migrate] Malachi family created, memberships reorganized')
