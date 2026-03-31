@@ -1,5 +1,3 @@
-import * as fs from 'fs'
-import * as childProcess from 'child_process'
 import Fastify from 'fastify'
 import fjwt from '@fastify/jwt'
 import fcors from '@fastify/cors'
@@ -102,58 +100,8 @@ async function start() {
     }
   })
 
-  // ─── Start HTTP ─────────────────────────────────────────────────
+  // ─── Start ──────────────────────────────────────────────────────
   await app.listen({ port: env.PORT, host: '0.0.0.0' })
-
-  // ─── Start HTTPS (same app, for geolocation support) ───────────
-  try {
-    const certDir = '/tmp/certs'
-    const keyPath = `${certDir}/key.pem`
-    const certPath = `${certDir}/cert.pem`
-    if (!fs.existsSync(certPath)) {
-      fs.mkdirSync(certDir, { recursive: true })
-      childProcess.execSync(
-        `openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 365 -nodes -subj "/CN=familycart"`,
-        { stdio: 'pipe' }
-      )
-      console.info('[https] Self-signed certificate generated')
-    }
-
-    // Create a second full Fastify instance with HTTPS
-    const httpsApp = Fastify({
-      logger: { level: env.LOG_LEVEL },
-      https: { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) },
-    })
-
-    // Register the same plugins and routes
-    await httpsApp.register(fcors,       { origin: env.CORS_ORIGIN })
-    await httpsApp.register(fmultipart,  { limits: { fileSize: 10 * 1024 * 1024 } })
-    await httpsApp.register(fjwt,        { secret: env.JWT_SECRET })
-    await httpsApp.register(helmet,      { contentSecurityPolicy: false })
-
-    httpsApp.addHook('preHandler', async request => {
-      try { await request.jwtVerify() } catch {}
-    })
-
-    await httpsApp.register(authRoutes,        { prefix: '/auth' })
-    await httpsApp.register(listsRoutes,       { prefix: '/lists' })
-    await httpsApp.register(expensesRoutes,    { prefix: '/expenses' })
-    await httpsApp.register(membersRoutes,     { prefix: '/members' })
-    await httpsApp.register(mediaRoutes,       { prefix: '/media' })
-    await httpsApp.register(permissionsRoutes, { prefix: '/permissions' })
-    await httpsApp.register(shareRoutes,       { prefix: '/share' })
-    await httpsApp.register(adminRoutes,       { prefix: '/admin' })
-    await httpsApp.register(webRoutes)
-
-    httpsApp.get('/', async (_req, reply) => reply.redirect('/app'))
-    httpsApp.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
-
-    const httpsPort = Number(env.PORT) + 443 // 3443
-    await httpsApp.listen({ port: httpsPort, host: '0.0.0.0' })
-    console.info(`[https] HTTPS server on port ${httpsPort} — use https://<host>:${httpsPort} for geolocation`)
-  } catch (err) {
-    console.warn('[https] Could not start HTTPS server:', (err as Error).message)
-  }
 }
 
 start().catch(err => {

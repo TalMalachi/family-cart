@@ -1717,21 +1717,7 @@ document.getElementById('findStoresBtn').onclick = () => {
     }
   }
 
-  if (!window.isSecureContext) {
-    // Not HTTPS — try switching to HTTPS for geolocation
-    var httpsUrl = 'https://' + window.location.hostname + ':3443' + window.location.pathname + window.location.search;
-    content.innerHTML = '<div style="padding:16px;text-align:center">' +
-      '<p style="font-size:14px;color:#475569;margin-bottom:12px">Location access requires a secure connection.</p>' +
-      '<a href="' + httpsUrl + '" class="btn btn-primary" style="display:inline-block;text-decoration:none;margin-bottom:12px">Open secure version</a>' +
-      '<p style="font-size:12px;color:#94a3b8;margin-bottom:16px">You may need to accept the security certificate warning.</p>' +
-      '<hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">' +
-      '<p style="font-size:13px;color:#475569;margin-bottom:8px">Or enter your location manually:</p>' +
-      '<input id="manualLocationInput" placeholder="e.g. Tel Aviv, Haifa, Jerusalem" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:10px" />' +
-      '<button class="btn btn-light" style="width:100%" onclick="searchByAddress()">Search</button>' +
-      '</div>';
-    return;
-  }
-  if (!navigator.geolocation) {
+  if (!window.isSecureContext || !navigator.geolocation) {
     showManualLocation();
   } else {
     // Try high accuracy first; if it fails with POSITION_UNAVAILABLE or TIMEOUT,
