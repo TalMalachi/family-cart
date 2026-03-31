@@ -325,8 +325,22 @@ export async function webRoutes(app: FastifyInstance) {
   <div class="panel super-only" id="tab-families">
     <div class="toolbar">
       <h2>All Families</h2>
+      <button class="btn btn-primary" onclick="openModal('newFamilyModal')">+ New Family</button>
     </div>
     <div id="familiesGrid" class="grid"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- NEW FAMILY MODAL -->
+  <div class="overlay" id="newFamilyModal">
+    <div class="modal">
+      <h3>Create Family</h3>
+      <label>Family name</label>
+      <input id="newFamilyName" placeholder="e.g. The Levi Family" />
+      <div class="modal-footer">
+        <button class="btn btn-light" data-close="newFamilyModal">Cancel</button>
+        <button class="btn btn-primary" id="createFamilyBtn">Create</button>
+      </div>
+    </div>
   </div>
 
   <!-- PROFILE PANEL -->
@@ -1224,6 +1238,18 @@ async function loadFamilies() {
     \`).join('');
   } catch (e) { console.error('loadFamilies', e); }
 }
+
+document.getElementById('createFamilyBtn').onclick = async () => {
+  const name = document.getElementById('newFamilyName').value.trim();
+  if (!name) return;
+  try {
+    await api('POST', '/admin/families', { name });
+    closeModal('newFamilyModal');
+    document.getElementById('newFamilyName').value = '';
+    toast('Family created');
+    loadFamilies();
+  } catch (e) { toast(e.message, true); }
+};
 
 async function loadLists() {
   const el = document.getElementById('listsGrid');
