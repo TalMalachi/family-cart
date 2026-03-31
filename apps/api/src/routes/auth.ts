@@ -57,14 +57,14 @@ export async function authRoutes(app: FastifyInstance) {
 <body>
   <main class="card">
     <h1>FamilyCart Login</h1>
-    <form id="loginForm">
+    <form id="loginForm" method="post" action="javascript:void(0)">
       <label for="phoneOrEmail">Phone or email</label>
-      <input id="phoneOrEmail" name="phoneOrEmail" placeholder="admin@familycart.local" required />
+      <input id="phoneOrEmail" placeholder="admin@familycart.local" required autocomplete="username" />
 
       <input id="familySlug" type="hidden" value="" />
 
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" placeholder="********" required />
+      <input id="password" type="password" placeholder="********" required autocomplete="current-password" />
 
       <button id="submitBtn" type="submit">Login</button>
       <div id="familyPicker" style="display:none;margin-top:12px"></div>
@@ -191,12 +191,12 @@ export async function authRoutes(app: FastifyInstance) {
   <main class="card">
     <h1>System Admin</h1>
     <p class="subtitle">FamilyCart Administration</p>
-    <form id="loginForm">
+    <form id="loginForm" method="post" action="javascript:void(0)">
       <label for="phoneOrEmail">Email</label>
-      <input id="phoneOrEmail" name="phoneOrEmail" placeholder="admin@familycart.local" required />
+      <input id="phoneOrEmail" placeholder="admin@familycart.local" required autocomplete="username" />
 
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" placeholder="********" required />
+      <input id="password" type="password" placeholder="********" required autocomplete="current-password" />
 
       <button id="submitBtn" type="submit">Sign in as System Admin</button>
       <div id="message"></div>
