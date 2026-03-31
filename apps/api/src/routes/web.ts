@@ -1670,32 +1670,56 @@ document.getElementById('findStoresBtn').onclick = () => {
     });
   }
 
+  function showManualLocation() {
+    content.innerHTML = '<div style="padding:16px;text-align:center">' +
+      '<p style="font-size:14px;color:#475569;margin-bottom:12px">Could not detect your location automatically.<br>Please enter your city or address:</p>' +
+      '<input id="manualLocationInput" placeholder="e.g. Tel Aviv, Haifa, Jerusalem" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:10px" />' +
+      '<button class="btn btn-primary" style="width:100%" onclick="searchByAddress()">Search</button>' +
+      '</div>';
+  }
+
+  window.searchByAddress = function() {
+    var addr = document.getElementById('manualLocationInput').value.trim();
+    if (!addr) return;
+    content.innerHTML = '<div class="loading">' + t('searching_stores') + '</div>';
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(addr))
+      .then(function(r) { return r.json(); })
+      .then(function(results) {
+        if (results && results.length > 0) {
+          onLocationSuccess({ coords: { latitude: parseFloat(results[0].lat), longitude: parseFloat(results[0].lon) } });
+        } else {
+          content.innerHTML = '<div class="empty">Location not found. Try a different address.</div>';
+        }
+      })
+      .catch(function() {
+        content.innerHTML = '<div class="empty">Search failed. Please try again.</div>';
+      });
+  };
+
   function ipFallback() {
     content.innerHTML = '<div class="loading">' + t('location_ip_fallback') + '</div>';
     fetch('/geolocate').then(function(r) { return r.json(); }).then(function(data) {
       if (data.lat && data.lng) {
         onLocationSuccess({ coords: { latitude: data.lat, longitude: data.lng } });
       } else {
-        content.innerHTML = '<div class="empty">' + t('location_unavailable') + '</div>';
+        showManualLocation();
       }
     }).catch(function() {
-      content.innerHTML = '<div class="empty">' + t('location_unavailable') + '</div>';
+      showManualLocation();
     });
   }
 
   function onLocationError(err) {
     if (err.code === 3) {
-      // TIMEOUT
       content.innerHTML = '<div class="empty">' + t('location_timeout') + '</div>';
     } else {
-      // PERMISSION_DENIED or POSITION_UNAVAILABLE — try IP fallback
-      ipFallback();
+      showManualLocation();
     }
   }
 
   if (!navigator.geolocation || !window.isSecureContext) {
-    // Geolocation unavailable (non-HTTPS or unsupported) — use IP fallback
-    ipFallback();
+    // Geolocation unavailable (non-HTTPS or unsupported) — ask user for location
+    showManualLocation();
   } else {
     // Try high accuracy first; if it fails with POSITION_UNAVAILABLE or TIMEOUT,
     // retry with low accuracy (IP/WiFi-based) which works on most desktops.
