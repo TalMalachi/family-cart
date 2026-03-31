@@ -163,7 +163,8 @@ export async function webRoutes(app: FastifyInstance) {
     .member-info{flex:1;min-width:0}
     .member-name{font-size:14px;font-weight:700;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .member-contact{font-size:12px;color:var(--c-text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .member-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+    .member-header select{width:auto;min-width:0;padding:4px 8px;font-size:11px;font-weight:600;flex-shrink:0}
+    .member-badges{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:8px}
     .member-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--c-border)}
     .member-actions .btn,.member-actions .btn-qr,.member-actions select{font-size:12px;padding:6px 12px}
     /* EDIT MODAL SECTIONS */
@@ -2248,8 +2249,7 @@ async function loadMembers() {
             <div class="member-contact">\${_or(m.phone, '')} \${m.phone && m.email ? '&nbsp;&middot;&nbsp;' : ''} \${_or(m.email, '')}</div>
           </div>
           \${isAdmin ? \`
-            <select style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:11px;font-weight:600;background:#fff"
-              onchange="updateMemberStatus('\${m.id}', this.value)">
+            <select onchange="updateMemberStatus('\${m.id}', this.value)">
               <option value="active" \${m.status === 'active' ? 'selected' : ''}>Active</option>
               <option value="register" \${m.status === 'register' ? 'selected' : ''}>Register</option>
               <option value="suspended" \${m.status === 'suspended' ? 'selected' : ''}>Suspended</option>
