@@ -1767,6 +1767,7 @@ document.getElementById('findStoresBtn').onclick = () => {
 };
 
 function renderNearbyStores(result) {
+  console.log('[nearbyStores] result:', JSON.stringify(result).substring(0, 500));
   const el = document.getElementById('nearbyStoresContent');
   if (!result.stores || !result.stores.length) {
     el.innerHTML = '<div class="empty">' + t('no_stores_found') + '</div>';
@@ -1779,8 +1780,10 @@ function renderNearbyStores(result) {
     const medal = ['🥇', '🥈', '🥉'][idx] || '';
 
     const itemRows = store.itemPrices.map(ip => {
-      const priceText = ip.estimatedPrice !== null
-        ? '<strong>' + ip.currency + ip.estimatedPrice.toFixed(2) + '</strong>'
+      if (idx === 0) console.log('[nearbyStores] price check:', ip.name, 'estimatedPrice=', ip.estimatedPrice, 'type=', typeof ip.estimatedPrice, 'isNull=', ip.estimatedPrice === null);
+      const hasPrice = ip.estimatedPrice !== null && ip.estimatedPrice !== undefined;
+      const priceText = hasPrice
+        ? '<strong>' + ip.currency + Number(ip.estimatedPrice).toFixed(2) + '</strong>'
         : '<span style="color:#94a3b8">' + t('not_available') + '</span>';
       return '<tr><td style="font-size:13px">' + ip.name + '</td><td style="text-align:right;font-size:13px">' + priceText + '</td></tr>';
     }).join('');
