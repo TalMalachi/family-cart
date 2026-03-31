@@ -57,7 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
 <body>
   <main class="card">
     <h1>FamilyCart Login</h1>
-    <form id="loginForm" method="post" action="javascript:void(0)">
+    <form id="loginForm" action="">
       <label for="phoneOrEmail">Phone or email</label>
       <input id="phoneOrEmail" placeholder="admin@familycart.local" required autocomplete="username" />
 
@@ -191,7 +191,7 @@ export async function authRoutes(app: FastifyInstance) {
   <main class="card">
     <h1>System Admin</h1>
     <p class="subtitle">FamilyCart Administration</p>
-    <form id="loginForm" method="post" action="javascript:void(0)">
+    <form id="loginForm" action="">
       <label for="phoneOrEmail">Email</label>
       <input id="phoneOrEmail" placeholder="admin@familycart.local" required autocomplete="username" />
 
