@@ -1672,9 +1672,29 @@ document.getElementById('findStoresBtn').onclick = () => {
 
   function showManualLocation() {
     content.innerHTML = '<div style="padding:16px;text-align:center">' +
-      '<p style="font-size:14px;color:#475569;margin-bottom:12px">Could not detect your location automatically.<br>Please enter your city or address:</p>' +
+      '<p style="font-size:14px;color:#475569;margin-bottom:8px">Could not detect your location automatically.<br>Please enter your city or address:</p>' +
       '<input id="manualLocationInput" placeholder="e.g. Tel Aviv, Haifa, Jerusalem" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-bottom:10px" />' +
       '<button class="btn btn-primary" style="width:100%" onclick="searchByAddress()">Search</button>' +
+      '<details style="margin-top:14px;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px">' +
+        '<summary style="font-size:13px;font-weight:600;color:#6C5CE7;cursor:pointer">How to enable automatic location</summary>' +
+        '<div style="font-size:12px;color:#475569;margin-top:8px;line-height:1.7">' +
+          '<p style="margin-bottom:6px">Location detection requires <b>HTTPS</b>. Since this app runs on HTTP, your browser blocks it. To fix this:</p>' +
+          '<p style="font-weight:600;margin:8px 0 4px">Option 1 — Chrome flag (easiest)</p>' +
+          '<ol style="padding-left:18px;margin:0">' +
+            '<li>Open <code style="background:#e2e8f0;padding:1px 4px;border-radius:3px">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> in Chrome</li>' +
+            '<li>Add <code style="background:#e2e8f0;padding:1px 4px;border-radius:3px">' + window.location.origin + '</code> to the list</li>' +
+            '<li>Set to <b>Enabled</b> and relaunch Chrome</li>' +
+          '</ol>' +
+          '<p style="font-weight:600;margin:8px 0 4px">Option 2 — Firefox</p>' +
+          '<ol style="padding-left:18px;margin:0">' +
+            '<li>Open <code style="background:#e2e8f0;padding:1px 4px;border-radius:3px">about:config</code></li>' +
+            '<li>Search for <code style="background:#e2e8f0;padding:1px 4px;border-radius:3px">geo.security.allowinsecure</code></li>' +
+            '<li>Set it to <b>true</b></li>' +
+          '</ol>' +
+          '<p style="font-weight:600;margin:8px 0 4px">Option 3 — Use localhost</p>' +
+          '<p style="margin:0">Access the app via <code style="background:#e2e8f0;padding:1px 4px;border-radius:3px">http://localhost:3000</code> — browsers allow location on localhost.</p>' +
+        '</div>' +
+      '</details>' +
       '</div>';
   }
 
