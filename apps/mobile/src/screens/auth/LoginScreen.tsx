@@ -31,11 +31,17 @@ export default function LoginScreen() {
         // familyOptions are now set in the store — UI will show picker
         setError('')
       } else {
-        setError(
-          e?.response?.status === 401
-            ? 'Incorrect phone/email or password'
-            : 'Something went wrong. Please try again.'
-        )
+        const code = e?.response?.data?.error
+        const msg = e?.response?.data?.message
+        if (e?.response?.status === 401) {
+          setError('Incorrect phone/email or password. Please try again.')
+        } else if (code === 'account_inactive') {
+          setError('Your account is not active. Please contact your family admin.')
+        } else if (code === 'not_family_member') {
+          setError(msg || 'You are not a member of this family.')
+        } else {
+          setError(msg || 'Something went wrong. Please try again.')
+        }
       }
     } finally {
       setLoading(false)

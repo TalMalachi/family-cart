@@ -131,7 +131,10 @@ export async function authRoutes(app: FastifyInstance) {
 
         if (!res.ok) {
           message.className = 'err';
-          message.textContent = data.error || data.message || 'Login failed';
+          if (data.error === 'invalid_credentials') message.textContent = 'Incorrect email/phone or password. Please try again.';
+          else if (data.error === 'account_inactive') message.textContent = 'Your account is not active. Please contact your family admin.';
+          else if (data.error === 'not_family_member') message.textContent = 'You are not a member of this family.';
+          else message.textContent = data.message || data.error || 'Login failed';
           return;
         }
 
@@ -227,7 +230,8 @@ export async function authRoutes(app: FastifyInstance) {
 
         if (!res.ok) {
           message.className = 'err';
-          message.textContent = data.error || data.message || 'Login failed';
+          if (data.error === 'invalid_credentials') message.textContent = 'Incorrect email or password.';
+          else message.textContent = data.message || data.error || 'Login failed';
           return;
         }
 
