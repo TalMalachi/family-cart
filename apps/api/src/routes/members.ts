@@ -16,7 +16,8 @@ export async function membersRoutes(app: FastifyInstance) {
       return db`
         select fm.id, fm.role, fm.status, fm.joined_at,
                u.id as user_id, u.full_name, u.phone, u.email,
-               u.must_change_password, f.name as family_name, f.id as family_id
+               u.must_change_password, u.is_super_admin,
+               f.name as family_name, f.id as family_id
         from family_members fm
         join users u on u.id = fm.user_id
         join families f on f.id = fm.family_id
@@ -27,7 +28,7 @@ export async function membersRoutes(app: FastifyInstance) {
     return db`
       select fm.id, fm.role, fm.status, fm.joined_at,
              u.id as user_id, u.full_name, u.phone, u.email,
-             u.must_change_password
+             u.must_change_password, u.is_super_admin
       from family_members fm
       join users u on u.id = fm.user_id
       where fm.family_id = ${effectiveFamilyId}

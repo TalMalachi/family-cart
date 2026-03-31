@@ -574,6 +574,11 @@ export async function webRoutes(app: FastifyInstance) {
       <option value="member">Member</option>
       <option value="admin">Admin</option>
     </select>
+    <div class="super-only" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+        <input type="checkbox" id="inviteSysAdmin" style="width:auto" /> Promote to System Admin
+      </label>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-light" data-close="inviteMemberModal">Cancel</button>
       <button class="btn btn-primary" id="sendInviteBtn">Send Invite</button>
@@ -596,6 +601,11 @@ export async function webRoutes(app: FastifyInstance) {
       <option value="member">Member</option>
       <option value="admin">Admin</option>
     </select>
+    <div class="super-only" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+        <input type="checkbox" id="editMemberSysAdmin" style="width:auto" /> System Admin
+      </label>
+    </div>
     <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0" />
     <label>New Password <span style="font-weight:400;color:#94a3b8">(leave empty to keep current)</span></label>
     <input id="editMemberPassword" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
@@ -1230,10 +1240,16 @@ async function loadFamilies() {
     if (!families.length) { grid.innerHTML = '<div class="empty">No families</div>'; return; }
     grid.innerHTML = families.map(f => \`
       <div class="card">
-        <h3>\${f.name}</h3>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <h3 style="flex:1">\${f.name}</h3>
+          <button class="item-del" title="Rename" onclick="event.stopPropagation();renameFamily('\${f.id}', '\${f.name.replace(/'/g,'&apos;')}')" style="color:#6C5CE7;font-size:14px;padding:2px 4px">&#9998;</button>
+        </div>
         <div class="meta" style="margin-bottom:4px">Slug: <b>\${f.slug}</b></div>
         <div class="meta">\${f.memberCount} members &nbsp;·&nbsp; \${f.listCount} lists</div>
-        <div style="margin-top:8px"><button class="btn btn-light" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('lists');loadLists();">View lists</button></div>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-light" style="font-size:12px;padding:6px 12px" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('lists');loadLists();">View lists</button>
+          <button class="btn btn-light" style="font-size:12px;padding:6px 12px" onclick="selectedFamilyId='\${f.id}';document.getElementById('familySelect').value='\${f.id}';switchTab('members');loadMembers();">View members</button>
+        </div>
       </div>
     \`).join('');
   } catch (e) { console.error('loadFamilies', e); }
@@ -1250,6 +1266,16 @@ document.getElementById('createFamilyBtn').onclick = async () => {
     loadFamilies();
   } catch (e) { toast(e.message, true); }
 };
+
+async function renameFamily(familyId, currentName) {
+  const newName = prompt('Enter new family name:', currentName);
+  if (!newName || newName.trim() === currentName) return;
+  try {
+    await api('PATCH', '/admin/families/' + familyId, { name: newName.trim() });
+    toast('Family renamed');
+    loadFamilies();
+  } catch (e) { toast(e.message, true); }
+}
 
 async function loadLists() {
   const el = document.getElementById('listsGrid');
@@ -2112,19 +2138,34 @@ async function loadMembers() {
   const el = document.getElementById('membersTable');
   el.innerHTML = '<div class="loading">' + t('loading') + '</div>';
   try {
-    const members = await api('GET', '/members');
-    const isAdmin = currentUser.role === 'admin';
+    const membersQs = isSuperAdmin && selectedFamilyId ? '?familyId=' + selectedFamilyId : '';
+    const members = await api('GET', '/members' + membersQs);
+    const isAdmin = currentUser.role === 'admin' || isSuperAdmin;
     if (!members.length) { el.innerHTML = '<div class="empty">' + t('no_members') + '</div>'; return; }
+
+    // For sys_admin, look up is_super_admin status per user
+    let superAdminMap = {};
+    if (isSuperAdmin) {
+      try {
+        const families = await api('GET', '/admin/families');
+        // We already have family names from members response
+      } catch {}
+    }
+
     el.innerHTML = \`
       <table>
-        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+        <thead><tr>\${isSuperAdmin ? '<th>Family</th>' : ''}<th>Name</th><th>Phone</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
         <tbody>
           \${members.map(m => \`
             <tr>
+              \${isSuperAdmin ? \`<td style="font-size:12px;color:#6C5CE7;font-weight:600">\${_or(m.familyName, '-')}</td>\` : ''}
               <td><strong>\${m.fullName}</strong></td>
               <td>\${_or(m.phone, '-')}</td>
               <td>\${_or(m.email, '-')}</td>
-              <td><span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span></td>
+              <td>
+                <span class="badge \${m.role === 'admin' ? 'badge-active' : 'badge-completed'}">\${m.role}</span>
+                \${m.isSuperAdmin ? '<span class="badge" style="background:#EDE9FE;color:#7C3AED;margin-left:4px">sys_admin</span>' : ''}
+              </td>
               <td>
                 \${isAdmin ? \`
                   <select
@@ -2148,7 +2189,7 @@ async function loadMembers() {
                   <button
                     class="btn btn-light"
                     style="font-size:12px;padding:6px 10px;margin-right:6px"
-                    onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}')">
+                    onclick="openEditMember('\${m.id}', '\${m.role}', '\${encodeURIComponent(_or(m.fullName, ''))}', '\${encodeURIComponent(_or(m.phone, ''))}', '\${encodeURIComponent(_or(m.email, ''))}', \${m.userId === currentUser.id ? 'true' : 'false'}, '\${m.userId}', \${!!m.isSuperAdmin})">
                     Edit
                   </button>
                   \${m.mustChangePassword ? \`
@@ -2180,6 +2221,8 @@ document.getElementById('inviteMemberBtn').onclick = () => {
   document.getElementById('invitePhone').value = '';
   document.getElementById('inviteEmail').value = '';
   document.getElementById('inviteRole').value = 'member';
+  var saCb = document.getElementById('inviteSysAdmin');
+  if (saCb) saCb.checked = false;
   openModal('inviteMemberModal');
 };
 
@@ -2203,7 +2246,17 @@ document.getElementById('sendInviteBtn').onclick = async () => {
     return;
   }
   try {
-    await api('POST', '/auth/invite', { fullName, phone, email, role });
+    const inviteRes = await api('POST', '/auth/invite', { fullName, phone, email, role });
+    // If sys_admin checkbox is checked, promote the invited user
+    var saCb = document.getElementById('inviteSysAdmin');
+    if (isSuperAdmin && saCb && saCb.checked) {
+      // Find the user by email to get their userId
+      const allMembers = await api('GET', '/members');
+      const invited = allMembers.find(m => m.email && m.email.toLowerCase() === email.toLowerCase());
+      if (invited) {
+        await api('PATCH', '/admin/users/' + invited.userId + '/super-admin', { isSuperAdmin: true });
+      }
+    }
     closeModal('inviteMemberModal');
     toast(t('invitation_sent'));
     loadMembers();
@@ -2248,7 +2301,7 @@ async function updateMemberStatus(memberId, status) {
   }
 }
 
-function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, userId) {
+function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, userId, memberIsSuperAdmin) {
   const selfEdit = _or(isSelf === true, isSelf === 'true');
 
   let decodedName = _or(fullName, '');
@@ -2266,8 +2319,14 @@ function openEditMember(memberId, currentRole, fullName, phone, email, isSelf, u
   document.getElementById('editMemberPassword').value = '';
   document.getElementById('editMemberRole').value = currentRole;
   document.getElementById('editMemberRole').disabled = false;
+  var saCb = document.getElementById('editMemberSysAdmin');
+  if (saCb) {
+    saCb.checked = !!memberIsSuperAdmin;
+    saCb.disabled = selfEdit; // cannot toggle own sys_admin
+  }
   const saveBtn = document.getElementById('saveMemberEditBtn');
   saveBtn.dataset.originalRole = _or(currentRole, '');
+  saveBtn.dataset.originalSysAdmin = memberIsSuperAdmin ? 'true' : 'false';
   saveBtn.dataset.originalName = (_or(decodedName, '')).trim();
   saveBtn.dataset.originalPhone = (_or(decodedPhone, '')).trim();
   saveBtn.dataset.originalEmail = (_or(decodedEmail, '')).trim().toLowerCase();
@@ -2305,6 +2364,12 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
   const roleChanged = role !== originalRole;
   const passwordChanged = newPassword.length > 0;
 
+  // sys_admin checkbox
+  var saCb = document.getElementById('editMemberSysAdmin');
+  const originalSysAdmin = saveBtn.dataset.originalSysAdmin === 'true';
+  const newSysAdmin = saCb ? saCb.checked : originalSysAdmin;
+  const sysAdminChanged = isSuperAdmin && !isSelf && (newSysAdmin !== originalSysAdmin);
+
   if (isSelf && roleChanged) {
     toast(t('cannot_change_own_role'), true);
   }
@@ -2314,7 +2379,7 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     return;
   }
 
-  if (!profileChanged && !roleChanged && !passwordChanged) {
+  if (!profileChanged && !roleChanged && !passwordChanged && !sysAdminChanged) {
     toast(t('no_changes'));
     closeModal('editMemberModal');
     return;
@@ -2326,6 +2391,9 @@ document.getElementById('saveMemberEditBtn').onclick = async () => {
     }
     if (roleChanged && !isSelf) {
       await api('PATCH', '/members/' + memberId + '/role', { role });
+    }
+    if (sysAdminChanged && userId) {
+      await api('PATCH', '/admin/users/' + userId + '/super-admin', { isSuperAdmin: newSysAdmin });
     }
     if (passwordChanged && userId) {
       await api('PUT', '/auth/admin-set-password', { userId: userId, password: newPassword });

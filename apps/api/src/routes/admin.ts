@@ -37,4 +37,42 @@ export async function adminRoutes(app: FastifyInstance) {
     `
     return reply.status(201).send(family)
   })
+
+  // PATCH /admin/families/:id — rename a family (super-admin only)
+  app.patch('/families/:id', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { id } = request.params as any
+    const schema = z.object({ name: z.string().min(2).max(80) })
+    const body = schema.parse(request.body)
+
+    const [family] = await db`select * from families where id = ${id}`
+    if (!family) return reply.status(404).send({ error: 'not_found' })
+
+    // Update name and regenerate slug
+    let slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const [existing] = await db`select 1 from families where slug = ${slug} and id != ${id}`
+    if (existing) slug = slug + '-' + nanoid(4)
+
+    const [updated] = await db`
+      update families set name = ${body.name}, slug = ${slug}
+      where id = ${id} returning *
+    `
+    return updated
+  })
+
+  // PATCH /admin/users/:userId/super-admin — promote/demote sys_admin (super-admin only)
+  app.patch('/users/:userId/super-admin', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { userId } = request.params as any
+    const { isSuperAdmin: grant } = request.body as { isSuperAdmin: boolean }
+    const { id: currentUserId } = request.user as any
+
+    if (userId === currentUserId) {
+      return reply.status(400).send({ error: 'cannot_change_self', message: 'Cannot change your own sys_admin status' })
+    }
+
+    const [user] = await db`select id from users where id = ${userId}`
+    if (!user) return reply.status(404).send({ error: 'user_not_found' })
+
+    await db`update users set is_super_admin = ${grant} where id = ${userId}`
+    return { userId, isSuperAdmin: grant }
+  })
 }
