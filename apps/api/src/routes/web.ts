@@ -2709,5 +2709,193 @@ loadLists();
     return reply.header('Cache-Control', 'no-store, no-cache, must-revalidate').type('text/html; charset=utf-8').send(html)
   })
 
+  // ── Download Page — QR code distribution for testers ────────────────
+  app.get('/download', async (_request, reply) => {
+    const html = `<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FamilyCart — Download App</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    :root{--c-primary:#6C5CE7;--c-primary-dark:#5A4BD1;--c-primary-light:#F0EDFF;--c-pink:#E84393;--c-green:#00B894;--c-orange:#FF922B;--c-bg:#F0EDFF;--c-card:#FFFFFF;--c-text:#1A1A2E;--c-text2:#7C7C95;--radius-lg:20px;--radius-md:14px;--shadow-md:0 4px 16px rgba(108,92,231,.1)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--c-bg);min-height:100vh;color:var(--c-text);display:flex;flex-direction:column;align-items:center;padding:32px 16px}
+    .hero{text-align:center;margin-bottom:40px}
+    .hero h1{font-size:32px;font-weight:900;background:linear-gradient(135deg,#6C5CE7,#E84393);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero p{color:var(--c-text2);font-size:15px;margin-top:8px}
+    .cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:900px;width:100%}
+    .card{background:var(--c-card);border-radius:var(--radius-lg);padding:32px;box-shadow:var(--shadow-md);flex:1;min-width:300px;max-width:420px}
+    .card-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+    .card-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+    .card-icon.android{background:#E8F5E9}
+    .card-icon.ios{background:#E3F2FD}
+    .card h2{font-size:20px;font-weight:800}
+    .card h3{font-size:14px;font-weight:700;color:var(--c-primary);margin:20px 0 10px;text-transform:uppercase;letter-spacing:.5px}
+    .qr-placeholder{background:var(--c-primary-light);border:2px dashed var(--c-primary);border-radius:var(--radius-md);padding:24px;text-align:center;margin:16px 0}
+    .qr-placeholder img{max-width:200px;width:100%}
+    .qr-placeholder .placeholder-text{color:var(--c-primary);font-size:13px;font-weight:600}
+    .step{display:flex;gap:12px;margin:10px 0;align-items:flex-start}
+    .step-num{min-width:28px;height:28px;border-radius:50%;background:var(--c-primary-light);color:var(--c-primary);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+    .step-text{font-size:14px;line-height:1.5;color:var(--c-text2)}
+    .step-text strong{color:var(--c-text)}
+    .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700}
+    .badge-easy{background:#E8F5E9;color:#2E7D32}
+    .badge-medium{background:#FFF3E0;color:#E65100}
+    .note{background:#FFF8E1;border-left:3px solid var(--c-orange);padding:12px 16px;border-radius:0 var(--radius-md) var(--radius-md) 0;margin-top:16px;font-size:13px;color:var(--c-text2)}
+    .btn{display:inline-block;padding:12px 28px;border-radius:var(--radius-md);font-weight:700;font-size:15px;text-decoration:none;text-align:center;cursor:pointer;border:none;width:100%;margin-top:16px;transition:transform .2s}
+    .btn:hover{transform:translateY(-2px)}
+    .btn-android{background:linear-gradient(135deg,#00B894,#00CEC9);color:#fff}
+    .btn-ios{background:linear-gradient(135deg,#6C5CE7,#E84393);color:#fff}
+    .btn-disabled{background:#E2E8F0;color:#94A3B8;cursor:not-allowed}
+    .btn-disabled:hover{transform:none}
+    .url-input{width:100%;padding:10px 14px;border:2px solid #E2E8F0;border-radius:var(--radius-md);font-size:14px;font-family:inherit;margin:8px 0}
+    .url-input:focus{outline:none;border-color:var(--c-primary)}
+    .admin-section{background:var(--c-card);border-radius:var(--radius-lg);padding:32px;box-shadow:var(--shadow-md);max-width:900px;width:100%;margin-top:32px}
+    .admin-section h2{font-size:20px;font-weight:800;margin-bottom:16px}
+    .gen-btn{padding:10px 24px;border-radius:var(--radius-md);font-weight:700;font-size:14px;cursor:pointer;border:2px solid var(--c-primary);background:var(--c-primary-light);color:var(--c-primary);transition:all .2s}
+    .gen-btn:hover{background:var(--c-primary);color:#fff}
+    #qrResult{margin-top:16px;text-align:center}
+    .footer{margin-top:48px;text-align:center;font-size:12px;color:var(--c-text2)}
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>FamilyCart</h1>
+  <p>Download the app for testing</p>
+</div>
+
+<div class="cards">
+
+  <!-- ── Android Card ───────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon android">&#129302;</div>
+      <div>
+        <h2>Android</h2>
+        <span class="badge badge-easy">Easy</span>
+      </div>
+    </div>
+
+    <div class="qr-placeholder" id="androidQr">
+      <div class="placeholder-text">QR code will appear here<br>after build URL is set</div>
+    </div>
+
+    <a id="androidBtn" class="btn btn-disabled" href="#">Download APK</a>
+
+    <h3>How to Install</h3>
+    <div class="step"><span class="step-num">1</span><div class="step-text">Scan the QR code or tap <strong>Download APK</strong></div></div>
+    <div class="step"><span class="step-num">2</span><div class="step-text">If prompted, go to <strong>Settings &rarr; Security &rarr; Install unknown apps</strong> and allow your browser</div></div>
+    <div class="step"><span class="step-num">3</span><div class="step-text">Tap the downloaded <strong>.apk</strong> file &rarr; <strong>Install</strong></div></div>
+    <div class="step"><span class="step-num">4</span><div class="step-text">If Google Play Protect warns you, tap <strong>"Install anyway"</strong></div></div>
+    <div class="step"><span class="step-num">5</span><div class="step-text">Open FamilyCart and log in</div></div>
+  </div>
+
+  <!-- ── iOS Card ───────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon ios">&#127822;</div>
+      <div>
+        <h2>iPhone</h2>
+        <span class="badge badge-medium">Requires Setup</span>
+      </div>
+    </div>
+
+    <div class="qr-placeholder" id="iosQr">
+      <div class="placeholder-text">QR code will appear here<br>after build URL is set</div>
+    </div>
+
+    <a id="iosBtn" class="btn btn-disabled" href="#">Download for iOS</a>
+
+    <h3>First Time Only: Register Device</h3>
+    <div class="step"><span class="step-num">1</span><div class="step-text">On your iPhone, open Safari and go to <strong>expo.dev/register-device</strong></div></div>
+    <div class="step"><span class="step-num">2</span><div class="step-text">Follow the prompts to install the profile &mdash; this registers your device</div></div>
+    <div class="step"><span class="step-num">3</span><div class="step-text">Tell the app owner so they can rebuild with your device included</div></div>
+
+    <h3>Install the App</h3>
+    <div class="step"><span class="step-num">1</span><div class="step-text">Scan the QR code or tap <strong>Download for iOS</strong></div></div>
+    <div class="step"><span class="step-num">2</span><div class="step-text">When iOS asks, tap <strong>Install</strong></div></div>
+    <div class="step"><span class="step-num">3</span><div class="step-text">Go to <strong>Settings &rarr; General &rarr; VPN &amp; Device Management</strong></div></div>
+    <div class="step"><span class="step-num">4</span><div class="step-text">Tap the developer certificate and tap <strong>Trust</strong></div></div>
+    <div class="step"><span class="step-num">5</span><div class="step-text">Open FamilyCart and log in</div></div>
+
+    <div class="note">
+      <strong>Alternative:</strong> For larger groups, use <strong>TestFlight</strong>.
+      Testers install TestFlight from the App Store, then accept an invite link.
+      No device registration needed. Supports up to 10,000 testers.
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin: Set Build URLs ───────────────────────────── -->
+<div class="admin-section">
+  <h2>Set Build URLs (Admin)</h2>
+  <p style="font-size:13px;color:var(--c-text2);margin-bottom:16px">
+    After running <code>eas build --profile preview</code>, paste the build URLs here to generate QR codes.
+  </p>
+  <label style="font-size:13px;font-weight:600">Android APK URL</label>
+  <input class="url-input" id="androidUrl" placeholder="https://expo.dev/artifacts/eas/..." />
+  <label style="font-size:13px;font-weight:600;margin-top:8px;display:block">iOS Build URL</label>
+  <input class="url-input" id="iosUrl" placeholder="https://expo.dev/artifacts/eas/..." />
+  <button class="gen-btn" onclick="generateQRCodes()">Generate QR Codes</button>
+  <div id="qrResult"></div>
+</div>
+
+<div class="footer">
+  FamilyCart &mdash; Test Build Distribution
+</div>
+
+<script>
+// Persist URLs in localStorage so they survive page reloads
+var ANDROID_KEY = 'fc_download_android_url';
+var IOS_KEY = 'fc_download_ios_url';
+
+function init() {
+  var savedAndroid = localStorage.getItem(ANDROID_KEY) || '';
+  var savedIos = localStorage.getItem(IOS_KEY) || '';
+  if (savedAndroid) document.getElementById('androidUrl').value = savedAndroid;
+  if (savedIos) document.getElementById('iosUrl').value = savedIos;
+  if (savedAndroid || savedIos) generateQRCodes();
+}
+
+function generateQRCodes() {
+  var androidUrl = document.getElementById('androidUrl').value.trim();
+  var iosUrl = document.getElementById('iosUrl').value.trim();
+
+  // Save to localStorage
+  localStorage.setItem(ANDROID_KEY, androidUrl);
+  localStorage.setItem(IOS_KEY, iosUrl);
+
+  // Use Google Charts QR API (free, no dependency)
+  var qrApi = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=';
+
+  if (androidUrl) {
+    document.getElementById('androidQr').innerHTML = '<img src="' + qrApi + encodeURIComponent(androidUrl) + '" alt="Android QR" />';
+    var btn = document.getElementById('androidBtn');
+    btn.href = androidUrl;
+    btn.className = 'btn btn-android';
+    btn.setAttribute('target', '_blank');
+  }
+
+  if (iosUrl) {
+    document.getElementById('iosQr').innerHTML = '<img src="' + qrApi + encodeURIComponent(iosUrl) + '" alt="iOS QR" />';
+    var btn = document.getElementById('iosBtn');
+    btn.href = iosUrl;
+    btn.className = 'btn btn-ios';
+    btn.setAttribute('target', '_blank');
+  }
+
+  document.getElementById('qrResult').innerHTML = '<p style="color:var(--c-green);font-weight:600;margin-top:8px">QR codes generated! Share this page with testers.</p>';
+}
+
+init();
+</script>
+</body>
+</html>`
+    return reply.header('Cache-Control', 'no-store, no-cache, must-revalidate').type('text/html; charset=utf-8').send(html)
+  })
+
 }
 
